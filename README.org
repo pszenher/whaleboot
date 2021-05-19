@@ -1,3 +1,0 @@
-#+TITLE: WhaleBoot
-
-[[images/logo.svg]]
