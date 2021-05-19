@@ -5,24 +5,24 @@ on:
   pull_request:
     branches: [master]
 jobs:
-  - shellcheck:
-      runs-on: ubuntu-latest
-      steps:
-        - name: Checkout Repo
-          uses: actions/checkout@v2
-          path: repo
-          with:
-            fetch-depth: 0
-        - name: Run shellcheck
+  shellcheck:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Repo
+        uses: actions/checkout@v2
+        path: repo
+        with:
+          fetch-depth: 0
+      - name: Run shellcheck
           run: docker run --rm -v "$PWD/repo:/mnt" koalaman/shellcheck:stable -a -f gcc -S style -o all whaleboot
-  - shfmt:
-      runs-on: ubuntu-latest
-      steps:
-        - name: Checkout Repo
-          uses: actions/checkout@v2
-          path: repo
-          with:
-            fetch-depth: 0
-        - name: Run shfmt
-          run: docker run --rm -v $PWD/repo:/mnt -w /mnt mvdan/shfmt:latest -d *.sh
+  shfmt:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Repo
+        uses: actions/checkout@v2
+        path: repo
+        with:
+          fetch-depth: 0
+      - name: Run shfmt
+        run: docker run --rm -v $PWD/repo:/mnt -w /mnt mvdan/shfmt:latest -d *.sh
 
