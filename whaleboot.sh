@@ -55,6 +55,7 @@ function ask() {
         case "${reply}" in
             Y* | y*) return 0 ;;
             N* | n*) return 1 ;;
+            *) ;;
         esac
     done
 }
@@ -171,7 +172,7 @@ function catch() {
 
     exit_code=${?}
     cleanup
-    exit ${exit_code}
+    exit "${exit_code}"
 }
 
 function init_disk_image() {
@@ -326,7 +327,7 @@ OPTIONS=hH:s:
 LONGOPTS=help,debug,hostname:,size:
 
 # Parse arguments with getopt
-PARSED=$(getopt --options=${OPTIONS} --longoptions=${LONGOPTS} --name "${0}" -- "${@}")
+PARSED=$(getopt --options="${OPTIONS}" --longoptions="${LONGOPTS}" --name "${0}" -- "${@}")
 
 # Set positional arguments to getopt output
 eval set -- "${PARSED}"
