@@ -28,33 +28,28 @@ function usage() {
 function ask() {
     # General-purpose y-or-n function
     # Usage:
-    #     ask ${prompt} ${Y|N}
-    # Reference: https://gist.github.com/davejamesmiller/1965569
+    #     ask ${prompt} [${Y|N}]
 
+    check_pos_args ${#} 1 2
     local prompt default reply
-    if [[ ${2:-} = 'Y' ]]; then
-        prompt='Y/n'
-        default='Y'
-    elif [[ ${2:-} = 'N' ]]; then
-        prompt='y/N'
-        default='N'
-    else
-        prompt='y/n'
-        default=''
-    fi
+
+    case ${2:-} in
+        Y) prompt='Y/n' ;;
+        N) prompt='y/N' ;;
+        "") prompt="y/n" ;;
+        *) logerror "Invalid default option \"${2:-}\"" && return 1 ;;
+    esac
+    default="${2:-}"
+
     while true; do
-        # Ask the question (not using "read -p" as it uses stderr not stdout)
         echo -n "${1} [${prompt}] "
-        # Read the answer (use /dev/tty in case stdin is redirected from somewhere else)
-        read -r reply </dev/tty
-        # Default?
+        read -r reply
         if [[ -z ${reply} ]]; then
             reply=${default}
         fi
-        # Check if the reply is valid
         case "${reply}" in
-            Y* | y*) return 0 ;;
-            N* | n*) return 1 ;;
+            Y | y) return 0 ;;
+            N | n) return 1 ;;
             *) ;;
         esac
     done
@@ -63,7 +58,7 @@ function ask() {
 function check_pos_args() {
     # Assert num passed args = num expected, else return nonzero
     # Usage:
-    #     check_pos_args ${nargs} ${nexact}|[${nmin} ${nmax}]
+    #     check_pos_args ${nargs} {${nexact}|${nmin} ${nmax}}
 
     if [[ "${FUNCNAME[1]}" != "${FUNCNAME[0]}" ]]; then
         check_pos_args ${#} 2 3
@@ -99,23 +94,13 @@ function log() {
         return 1
     fi
 
-    if [ -n "${2-}" ] && [ -t 1 ] && [ -x "$(command -v tput)" ]; then
+    if [ -n "${2-}" ] && [ -t 2 ] && [ -x "$(command -v tput)" ]; then
         case "${2}" in
-            red)
-                line_color="$(tput setaf 1)"
-                ;;
-            green)
-                line_color="$(tput setaf 2)"
-                ;;
-            yellow)
-                line_color="$(tput setaf 3)"
-                ;;
-            none)
-                line_color=""
-                ;;
-            *)
-                logerror "Invalid line color \"${2}\" passed to log"
-                ;;
+            red) line_color="$(tput setaf 1)" ;;
+            green) line_color="$(tput setaf 2)" ;;
+            yellow) line_color="$(tput setaf 3)" ;;
+            none) line_color="" ;;
+            *) logerror "Invalid line color \"${2}\"" && return 1 ;;
         esac
         line_reset="$(tput sgr0)"
     else
@@ -189,7 +174,7 @@ function cleanup() {
     # Remove temporary mount directory
     if [ -d "${mount_dir-}" ]; then
         loginfo "Removing temporary mount dir ${mount_dir}"
-        rm -d "${mount_dir}"
+        rmdir "${mount_dir}"
     fi
 
     # Remove temporary docker container if it is defined
@@ -315,7 +300,8 @@ function main() {
     init_disk_partitions "${file_name}"
 
     loginfo "Configuring loopback block device for disk image"
-    loopback_dev=$(losetup -o $((512 * 2048)) -f "${file_name}" --show)
+    loopback_dev=$(losetup -f)
+    losetup -o $((512 * 2048)) "${loopback_dev}" "${file_name}" 2>&1 | logpipe "error"
     loginfo "Loopback device configured, \"${loopback_dev}\""
 
     loginfo "Formatting disk partition as ext4"
@@ -415,6 +401,8 @@ while true; do
             ;;
     esac
 done
+
+# TODO: check if user is root, else exit with error
 
 # Check that all dependencies are in path and executable
 for executable in "${required_executables[@]}"; do
