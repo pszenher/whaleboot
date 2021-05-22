@@ -6,14 +6,14 @@
 ###   whaleboot.sh [options] DOCKER_IMAGE DISK_FILE
 ###
 ### Parameters:
-###   DOCKER_IMAGE             Name of docker image to use
-###   DISK_FILE                File to write disk image to
+###   DOCKER_IMAGE                 Name of docker image to use
+###   DISK_FILE                    File to write disk image to
 ###
 ### Options:
-###   --help,     -h           Display this message.
-###   --debug                  Print debug messages
-###   --hostname, -H HOST      Hostname of disk image (default: "jackal")
-###   --size,     -s SIZE      Size of disk image (see man truncate(1) for SIZE arg semantics)
+###   -h        --help             Display this message.
+###             --debug            Print debug messages
+###   -H HOST   --hostname=HOST    Hostname of disk image (default: "jackal")
+###   -s SIZE   --size=SIZE        Size of disk image (see man truncate(1) for SIZE arg semantics)
 ###
 
 function usage() {
