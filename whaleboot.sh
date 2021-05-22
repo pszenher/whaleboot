@@ -382,7 +382,6 @@ required_executables=(
     "pv"
     "sfdisk"
     "tar"
-    "tput"
     "truncate"
     "udevadm"
 )
