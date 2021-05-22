@@ -14,6 +14,7 @@
 ###             --debug            Print debug messages
 ###   -H HOST   --hostname=HOST    Hostname of disk image (default: "jackal")
 ###   -s SIZE   --size=SIZE        Size of disk image (see man truncate(1) for SIZE arg semantics)
+###   -y        --assume-yes       Automatic yes to prompts, run non-interactively
 ###
 
 function usage() {
@@ -41,9 +42,14 @@ function ask() {
     esac
     default="${2:-}"
 
+    if [ -n "${assume_yes:-}" ]; then
+        echo "${1} [${prompt}] (assuming yes)"
+        return 0
+    fi
+
     while true; do
         echo -n "${1} [${prompt}] "
-        read -r reply
+        read -r reply </dev/tty
         if [[ -z ${reply} ]]; then
             reply=${default}
         fi
@@ -239,7 +245,7 @@ function init_disk_partitions() {
     fi
 
     logwarn "This action will erase ALL DATA on ${file_details}"
-    if ! ask "Are you sure?" "N"; then
+    if ! ask "Overwrite ${file_details}?" "N"; then
         logwarn "disk partitioning cancelled, exiting"
         return 1
     fi
@@ -311,10 +317,14 @@ function main() {
     init_disk_mount "${loopback_dev}" "${mount_dir}"
 
     loginfo "Copying filesystem from docker image to disk image"
-    docker_container=$(docker run -d "${image_name}" /bin/true)
-    docker export "${docker_container}" \
+    docker_container=$(
+        docker run -d "${image_name}" /bin/true \
+            2> >(logpipe "error" "docker run: ")
+    )
+
+    docker export "${docker_container}" 2> >(logpipe "error" "docker export: ") \
         | pv -ptebars "$(docker image inspect "${image_name}" | jq '.[0].Size')" \
-        | tar -xf - --exclude="{tmp,sys,proc}" -C "${mount_dir}"
+        | tar -xf - --exclude="{tmp,sys,proc}" -C "${mount_dir}" 2> >(logpipe "error" "tar: ")
 
     loginfo "Writing system hostname \"${system_hostname}\" to disk image"
     init_system_hostname "${system_hostname}" "${mount_dir}"
@@ -344,8 +354,8 @@ if getopt --test >/dev/null; then
 fi
 
 # Set getopt command-line options
-OPTIONS=hH:s:
-LONGOPTS=help,debug,hostname:,size:
+OPTIONS=hH:s:y
+LONGOPTS=help,debug,hostname:,size:,assume-yes
 
 # Parse arguments with getopt
 PARSED=$(getopt --options="${OPTIONS}" --longoptions="${LONGOPTS}" --name "${0}" -- "${@}")
@@ -391,6 +401,10 @@ while true; do
             image_file_size="${2}"
             shift 2
             ;;
+        -y | --assume-yes)
+            assume_yes="y"
+            shift
+            ;;
         --)
             shift
             break
@@ -401,8 +415,6 @@ while true; do
             ;;
     esac
 done
-
-# TODO: check if user is root, else exit with error
 
 # Check that all dependencies are in path and executable
 for executable in "${required_executables[@]}"; do
@@ -420,6 +432,18 @@ if [[ ${#} -ne 2 ]]; then
 fi
 image_name=${1}
 file_name=${2}
+
+# Check if script is running as root
+if [[ $(id -u) != 0 ]]; then
+    logerror "${0}: must run as root"
+    exit 1
+fi
+
+# Check if script is running interactively (if assume_yes not passed)
+if [ -z "${assume_yes:-}" ] && ! [ -t 0 ]; then
+    logerror "${0}: must run in a tty (unless -y flag is passed)"
+    exit 1
+fi
 
 # Invoke main function
 main
