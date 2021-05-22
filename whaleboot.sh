@@ -89,25 +89,53 @@ function check_pos_args() {
 function log() {
     # Log data to console with set format (cannot be invoked directly)
     # Usage:
-    #     log ${string}
+    #     log ${string} [${color}]
+
+    check_pos_args ${#} 1 2
 
     if [[ "${FUNCNAME[1]}" != log* ]]; then
         logerror "log() function illegally invoked by ${FUNCNAME[1]}, use wrapper function" \
             "(loginfo, etc.) instead"
         return 1
     fi
+
+    if [ -n "${2-}" ] && [ -t 1 ] && [ -x "$(command -v tput)" ]; then
+        case "${2}" in
+            red)
+                line_color="$(tput setaf 1)"
+                ;;
+            green)
+                line_color="$(tput setaf 2)"
+                ;;
+            yellow)
+                line_color="$(tput setaf 3)"
+                ;;
+            none)
+                line_color=""
+                ;;
+            *)
+                logerror "Invalid line color \"${2}\" passed to log"
+                ;;
+        esac
+        line_reset="$(tput sgr0)"
+    else
+        line_color=""
+        line_reset=""
+    fi
+
     if [ -n "${debug-}" ]; then
         line_prefix=$(printf "${0}: %3d:%-23s --> " "${BASH_LINENO[1]}" "${FUNCNAME[2]}()")
     else
         line_prefix=""
     fi
-    echo "${line_prefix}${*}" >&2
+
+    echo "${line_color}${line_prefix}${1}${line_reset}" >&2
 }
 
-function logsuccess() { log "$(tput setaf 2)[SUCCESS]: ${*}$(tput sgr0)"; }
-function loginfo() { log "[INFO]: ${*}"; }
-function logwarn() { log "$(tput setaf 3)[WARN]: ${*}$(tput sgr0)"; }
-function logerror() { log "$(tput setaf 1)[ERROR]: ${*}$(tput sgr0)"; }
+function logsuccess() { log "[SUCCESS]: ${*}" green; }
+function loginfo() { log "[INFO]: ${*}" none; }
+function logwarn() { log "[WARN]: ${*}" yellow; }
+function logerror() { log "[ERROR]: ${*}" red; }
 
 function logpipe() {
     # Send stdin data to log functions
@@ -126,18 +154,24 @@ function logpipe() {
     if [ -n "${2-}" ]; then stdin="${2}${stdin}"; fi
     if [ -n "${3-}" ]; then stdin="${stdin}${3}"; fi
 
-    if [[ "${severity}" == "success" ]]; then
-        logsuccess "${stdin}"
-    elif [[ "${severity}" == "info" ]]; then
-        loginfo "${stdin}"
-    elif [[ "${severity}" == "warn" ]]; then
-        logwarn "${stdin}"
-    elif [[ "${severity}" == "error" ]]; then
-        logerror "${stdin}"
-    else
-        logerror "Invalid logpipe severity \"${severity}\", exiting"
-        return 1
-    fi
+    case "${severity}" in
+        success)
+            logsuccess "${stdin}"
+            ;;
+        info)
+            loginfo "${stdin}"
+            ;;
+        warn)
+            logwarn "${stdin}"
+            ;;
+        error)
+            logerror "${stdin}"
+            ;;
+        *)
+            logerror "Invalid logpipe severity \"${severity}\""
+            return 1
+            ;;
+    esac
 }
 
 function cleanup() {
@@ -348,6 +382,7 @@ required_executables=(
     "pv"
     "sfdisk"
     "tar"
+    "tput"
     "truncate"
     "udevadm"
 )
@@ -382,6 +417,14 @@ while true; do
     esac
 done
 
+# Check that all dependencies are in path and executable
+for executable in "${required_executables[@]}"; do
+    if ! [ -x "$(command -v "${executable}")" ]; then
+        logerror "Required executable \"${executable}\" not in path, exiting"
+        exit 1
+    fi
+done
+
 # Handle positional arguments
 if [[ ${#} -ne 2 ]]; then
     logerror "${0}: exactly 2 positional arguments required, ${#} provided"
@@ -390,14 +433,6 @@ if [[ ${#} -ne 2 ]]; then
 fi
 image_name=${1}
 file_name=${2}
-
-# Check that all dependencies are in path and executable
-for executable in "${required_executables[@]}"; do
-    if ! [ -x "$(command -v "${executable}")" ]; then
-        logerror "Required executable \"${executable}\" not in path, exiting"
-        exit 1
-    fi
-done
 
 # Invoke main function
 main
