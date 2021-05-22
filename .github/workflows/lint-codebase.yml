@@ -16,7 +16,7 @@ jobs:
           path: repo
           fetch-depth: 0
       - name: Run shellcheck
-        run: docker run --rm -v "$PWD/repo:/mnt" -w /mnt koalaman/shellcheck:stable -a -f gcc -S style -o all "whaleboot.sh"
+        run: docker run --rm -v "$PWD/repo:/mnt" -w /mnt koalaman/shellcheck:stable -a "whaleboot.sh"
   shfmt:
     runs-on: ubuntu-latest
     steps:
