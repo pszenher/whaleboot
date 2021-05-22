@@ -182,8 +182,8 @@ function cleanup() {
     # Unmount and delete loopback device if it is defined
     if [ -n "${loopback_dev-}" ]; then
         loginfo "Unmounting disk image device ${loopback_dev}"
-        sudo umount "${loopback_dev}" && sync
-        sudo losetup -d "${loopback_dev}"
+        umount "${loopback_dev}" && sync
+        losetup -d "${loopback_dev}"
     fi
 
     # Remove temporary mount directory
@@ -262,10 +262,10 @@ function init_disk_partitions() {
     loginfo "Writing partition table to disk image"
 
     echo "label: dos" \
-        | sudo sfdisk -q "${filename}" 2>&1 \
+        | sfdisk -q "${filename}" 2>&1 \
         | logpipe "warn" "sfdisk: "
     echo "start=2048, type=83, bootable" \
-        | sudo sfdisk -q "${filename}" 2>&1 \
+        | sfdisk -q "${filename}" 2>&1 \
         | logpipe "warn" "sfdisk: "
 }
 
@@ -279,8 +279,8 @@ function init_system_hostname() {
     hostname=${1}
     rootdir=${2}
 
-    echo "${hostname}" | sudo tee "${rootdir}/etc/hostname" >/dev/null
-    cat <<EOF | sudo tee "${rootdir}/etc/hosts" >/dev/null
+    echo "${hostname}" | tee "${rootdir}/etc/hostname" >/dev/null
+    cat <<EOF | tee "${rootdir}/etc/hosts" >/dev/null
 127.0.0.1	localhost
 127.0.1.1	${hostname}
 EOF
@@ -304,7 +304,7 @@ function init_disk_mount() {
     fi
 
     loginfo "Mounting formatted disk partition at ${mountdir}"
-    sudo mount -t ext4 "${partition}" "${mountdir}"
+    mount -t ext4 "${partition}" "${mountdir}"
 }
 
 function main() {
@@ -315,11 +315,11 @@ function main() {
     init_disk_partitions "${file_name}"
 
     loginfo "Configuring loopback block device for disk image"
-    loopback_dev=$(sudo losetup -o $((512 * 2048)) -f "${file_name}" --show)
+    loopback_dev=$(losetup -o $((512 * 2048)) -f "${file_name}" --show)
     loginfo "Loopback device configured, \"${loopback_dev}\""
 
     loginfo "Formatting disk partition as ext4"
-    sudo mkfs.ext4 -q "${loopback_dev}" | logpipe "warn" "mkfs.ext4: "
+    mkfs.ext4 -q "${loopback_dev}" | logpipe "warn" "mkfs.ext4: "
 
     mount_dir="$(mktemp -d)"
     init_disk_mount "${loopback_dev}" "${mount_dir}"
@@ -328,17 +328,17 @@ function main() {
     docker_container=$(docker run -d "${image_name}" /bin/true)
     docker export "${docker_container}" \
         | pv -ptebars "$(docker image inspect "${image_name}" | jq '.[0].Size')" \
-        | sudo tar -xf - --exclude="{tmp,sys,proc}" -C "${mount_dir}"
+        | tar -xf - --exclude="{tmp,sys,proc}" -C "${mount_dir}"
 
     loginfo "Writing system hostname \"${system_hostname}\" to disk image"
     init_system_hostname "${system_hostname}" "${mount_dir}"
 
     loginfo "Installing extlinux bootloader on disk image"
-    sudo extlinux --install "${mount_dir}"/boot 2>&1 \
+    extlinux --install "${mount_dir}"/boot 2>&1 \
         | logpipe "warn" "extlinux: "
 
     loginfo "Writing syslinux mbr to disk image"
-    sudo dd if=/usr/lib/syslinux/mbr/mbr.bin of="${file_name}" \
+    dd if=/usr/lib/syslinux/mbr/mbr.bin of="${file_name}" \
         bs=440 count=1 conv=notrunc status=none 2>&1 \
         | logpipe "warn" "syslinux dd: "
 
