@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
 
-### build-image.sh -- build bootable disk image from docker image
+### whaleboot.sh -- build bootable disk image from docker image
 ###
 ### Usage:
-###   build-image.sh [options] DOCKER_IMAGE DISK_FILE
+###   whaleboot.sh [options] DOCKER_IMAGE DISK_FILE
 ###
 ### Parameters:
 ###   DOCKER_IMAGE             Name of docker image to use
@@ -152,9 +152,9 @@ function cleanup() {
         sudo losetup -d "${loopback_dev}"
     fi
 
-    # Remove mount dir if it was created by this script
-    if [ -d "${mount_dir-}" ] && [ -z "${mount_dir_existed-}" ]; then
-        loginfo "Removing mount dir ${mount_dir}"
+    # Remove temporary mount directory
+    if [ -d "${mount_dir-}" ]; then
+        loginfo "Removing temporary mount dir ${mount_dir}"
         rm -d "${mount_dir}"
     fi
 
@@ -287,6 +287,7 @@ function main() {
     loginfo "Formatting disk partition as ext4"
     sudo mkfs.ext4 -q "${loopback_dev}" | logpipe "warn" "mkfs.ext4: "
 
+    mount_dir="$(mktemp -d)"
     init_disk_mount "${loopback_dev}" "${mount_dir}"
 
     loginfo "Copying filesystem from docker image to disk image"
@@ -334,8 +335,22 @@ eval set -- "${PARSED}"
 
 # Set variable defaults
 system_hostname="jackal"
-mount_dir="tmp_mnt"
 image_file_size="5G"
+
+# Set dependencies
+required_executables=(
+    "dd"
+    "docker"
+    "extlinux"
+    "jq"
+    "mkfs.ext4"
+    "mktemp"
+    "pv"
+    "sfdisk"
+    "tar"
+    "truncate"
+    "udevadm"
+)
 
 # Handle named arguments
 while true; do
@@ -376,9 +391,13 @@ fi
 image_name=${1}
 file_name=${2}
 
-if [ -e "${mount_dir}" ]; then
-    mount_dir_existed=y
-fi
+# Check that all dependencies are in path and executable
+for executable in "${required_executables[@]}"; do
+    if ! [ -x "$(command -v "${executable}")" ]; then
+        logerror "Required executable \"${executable}\" not in path, exiting"
+        exit 1
+    fi
+done
 
 # Invoke main function
 main
