@@ -12,7 +12,7 @@
 ### Options:
 ###   -h        --help             Display this message.
 ###             --debug            Print debug messages
-###   -H HOST   --hostname=HOST    Hostname of disk image (default: "jackal")
+###   -H HOST   --hostname=HOST    Hostname of disk image (default: "whale")
 ###   -s SIZE   --size=SIZE        Size of disk image (see man truncate(1) for SIZE arg semantics)
 ###   -y        --assume-yes       Automatic yes to prompts, run non-interactively
 ###
@@ -34,25 +34,28 @@ function ask() {
     check_pos_args ${#} 1 2
     local prompt default reply
 
-    case ${2:-} in
-        Y) prompt='Y/n' ;;
-        N) prompt='y/N' ;;
-        "") prompt="y/n" ;;
-        *) logerror "Invalid default option \"${2:-}\"" && return 1 ;;
-    esac
-    default="${2:-}"
-
+    # Return yes if ${assume_yes} variable is set
     if [ -n "${assume_yes:-}" ]; then
         echo "${1} [${prompt}] (assuming yes)"
         return 0
     fi
 
+    # Parse passed default argument
+    case ${2:-} in
+        Y) prompt='Y/n' ;;
+        N) prompt='y/N' ;;
+        "") prompt="y/n" ;;
+        *)
+            logerror "Invalid default option \"${2:-}\""
+            exit 1
+            ;;
+    esac
+    default="${2:-}"
+
+    # Loop until valid input is provided
     while true; do
-        echo -n "${1} [${prompt}] "
-        read -r reply </dev/tty
-        if [[ -z ${reply} ]]; then
-            reply=${default}
-        fi
+        echo -n "${1} [${prompt}] " && read -r reply </dev/tty
+        if [[ -z ${reply} ]]; then reply=${default}; fi
         case "${reply}" in
             Y | y) return 0 ;;
             N | n) return 1 ;;
@@ -94,12 +97,14 @@ function log() {
 
     check_pos_args ${#} 1 2
 
+    # Only allow calls from log wrapper functions
     if [[ "${FUNCNAME[1]}" != log* ]]; then
         logerror "log() function illegally invoked by ${FUNCNAME[1]}, use wrapper function" \
             "(loginfo, etc.) instead"
         return 1
     fi
 
+    # Log in color if tty is available and tput is installed
     if [ -n "${2-}" ] && [ -t 2 ] && [ -x "$(command -v tput)" ]; then
         case "${2}" in
             red) line_color="$(tput setaf 1)" ;;
@@ -114,12 +119,14 @@ function log() {
         line_reset=""
     fi
 
+    # Add function name and line number if debug flag set
     if [ -n "${debug-}" ]; then
         line_prefix=$(printf "${0}: %3d:%-23s --> " "${BASH_LINENO[1]}" "${FUNCNAME[2]}()")
     else
         line_prefix=""
     fi
 
+    # Output log message to stderr
     echo "${line_color}${line_prefix}${1}${line_reset}" >&2
 }
 
@@ -129,39 +136,25 @@ function logwarn() { log "[WARN]: ${*}" yellow; }
 function logerror() { log "[ERROR]: ${*}" red; }
 
 function logpipe() {
-    # Send stdin data to log functions
+    # Send stdin data to log wrapper functions (success, info, warn, error)
     # Usage:
-    #     echo "data to log..." | logpipe ${severity} [${prefix} ${suffix}]
+    #     echo "data to log..." | logpipe ${severity} [${prefix}] [${suffix}]
 
     check_pos_args ${#} 1 3
     local stdin severity
     stdin="$(cat -)"
     severity=${1}
 
-    if [ -z "${stdin}" ]; then
-        return
-    fi
-
+    if [ -z "${stdin}" ]; then return; fi
     if [ -n "${2-}" ]; then stdin="${2}${stdin}"; fi
     if [ -n "${3-}" ]; then stdin="${stdin}${3}"; fi
 
     case "${severity}" in
-        success)
-            logsuccess "${stdin}"
-            ;;
-        info)
-            loginfo "${stdin}"
-            ;;
-        warn)
-            logwarn "${stdin}"
-            ;;
-        error)
-            logerror "${stdin}"
-            ;;
-        *)
-            logerror "Invalid logpipe severity \"${severity}\""
-            return 1
-            ;;
+        success) logsuccess "${stdin}" ;;
+        info) loginfo "${stdin}" ;;
+        warn) logwarn "${stdin}" ;;
+        error) logerror "${stdin}" ;;
+        *) logerror "Invalid logpipe severity \"${severity}\"" && return 1 ;;
     esac
 }
 
@@ -287,9 +280,7 @@ function init_disk_mount() {
     partition=${1}
     mountdir=${2}
 
-    if [ ! -e "${mountdir}" ]; then
-        mkdir -p "${mountdir}"
-    elif [ ! -d "${mountdir}" ]; then
+    if [ ! -d "${mountdir}" ]; then
         logerror "Target mount dir ${mountdir} is not a directory"
         return 1
     fi
@@ -364,23 +355,8 @@ PARSED=$(getopt --options="${OPTIONS}" --longoptions="${LONGOPTS}" --name "${0}"
 eval set -- "${PARSED}"
 
 # Set variable defaults
-system_hostname="jackal"
+system_hostname="whale"
 image_file_size="5G"
-
-# Set dependencies
-required_executables=(
-    "dd"
-    "docker"
-    "extlinux"
-    "jq"
-    "mkfs.ext4"
-    "mktemp"
-    "pv"
-    "sfdisk"
-    "tar"
-    "truncate"
-    "udevadm"
-)
 
 # Handle named arguments
 while true; do
@@ -415,6 +391,21 @@ while true; do
             ;;
     esac
 done
+
+# Set script dependencies
+required_executables=(
+    "dd"
+    "docker"
+    "extlinux"
+    "jq"
+    "mkfs.ext4"
+    "mktemp"
+    "pv"
+    "sfdisk"
+    "tar"
+    "truncate"
+    "udevadm"
+)
 
 # Check that all dependencies are in path and executable
 for executable in "${required_executables[@]}"; do
