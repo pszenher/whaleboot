@@ -22,12 +22,13 @@
 ###
 ### Parameters:
 ###   DOCKER_IMAGE                 Name of docker image to use
-###   DISK_FILE                    File to write disk image to
+###   DISK_FILE                    Path of output disk file
 ###
 ### Options:
 ###   -h        --help             Display this message.
 ###             --debug            Print debug messages
 ###   -H HOST   --hostname=HOST    Hostname of disk image (default: "whale")
+###   -m FILE   --mbr-path=FILE    Path of syslinux Master Boot Record file
 ###   -s SIZE   --size=SIZE        Size of disk image (see man truncate(1) for SIZE arg semantics)
 ###   -y        --assume-yes       Automatic yes to prompts, run non-interactively
 ###
@@ -49,12 +50,6 @@ function ask() {
     check_pos_args ${#} 1 2
     local prompt default reply
 
-    # Return yes if ${assume_yes} variable is set
-    if [ -n "${assume_yes:-}" ]; then
-        echo "${1} [${prompt}] (assuming yes)"
-        return 0
-    fi
-
     # Parse passed default argument
     case ${2:-} in
         Y) prompt='Y/n' ;;
@@ -66,6 +61,12 @@ function ask() {
             ;;
     esac
     default="${2:-}"
+
+    # Return yes if ${assume_yes} variable is set
+    if [ -n "${assume_yes:-}" ]; then
+        echo "${1} [${prompt}] (assuming yes)"
+        return 0
+    fi
 
     # Loop until valid input is provided
     while true; do
@@ -243,7 +244,7 @@ function init_disk_partitions() {
     if [ -b "${filename}" ]; then
         loginfo "Image file ${filename} is a block device, using physical disk methods"
         disk_model=$(udevadm info "${filename}" -q property | sed -rn 's/^ID_MODEL=//;T;p')
-        file_details="block device ${filename} (${disk_model})"
+        file_details="block device ${filename} ${disk_model:+(${disk_model})}"
     elif [ -f "${filename}" ]; then
         loginfo "Image file ${filename} is a regular file, using disk image methods"
         file_details="image file ${filename}"
@@ -330,7 +331,7 @@ function main() {
 
     docker export "${docker_container}" 2> >(logpipe "error" "docker export: ") \
         | pv -ptebars "$(docker image inspect "${image_name}" | jq '.[0].Size')" \
-        | tar -xf - --exclude="{tmp,sys,proc}" -C "${mount_dir}" 2> >(logpipe "error" "tar: ")
+        | tar -xf - --exclude="{tmp,sys,proc}" -C "${mount_dir}"
 
     loginfo "Writing system hostname \"${system_hostname}\" to disk image"
     init_system_hostname "${system_hostname}" "${mount_dir}"
@@ -340,7 +341,7 @@ function main() {
         | logpipe "warn" "extlinux: "
 
     loginfo "Writing syslinux mbr to disk image"
-    dd if=/usr/lib/syslinux/mbr/mbr.bin of="${file_name}" \
+    dd if="${mbr_path}" of="${file_name}" \
         bs=440 count=1 conv=notrunc status=none 2>&1 \
         | logpipe "warn" "syslinux dd: "
 
@@ -360,8 +361,8 @@ if getopt --test >/dev/null; then
 fi
 
 # Set getopt command-line options
-OPTIONS=hH:s:y
-LONGOPTS=help,debug,hostname:,size:,assume-yes
+OPTIONS=hH:ms:y
+LONGOPTS=help,debug,hostname:,mbr-path:,size:,assume-yes
 
 # Parse arguments with getopt
 PARSED=$(getopt --options="${OPTIONS}" --longoptions="${LONGOPTS}" --name "${0}" -- "${@}")
@@ -372,6 +373,7 @@ eval set -- "${PARSED}"
 # Set variable defaults
 system_hostname="whale"
 image_file_size="5G"
+mbr_path="/usr/lib/syslinux/mbr/mbr.bin"
 
 # Handle named arguments
 while true; do
@@ -386,6 +388,10 @@ while true; do
             ;;
         -H | --hostname)
             system_hostname="${2}"
+            shift 2
+            ;;
+        -m | --mbr-path)
+            mbr_path="${2}"
             shift 2
             ;;
         -s | --size)
