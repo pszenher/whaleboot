@@ -413,6 +413,15 @@ while true; do
     esac
 done
 
+# Handle positional arguments
+if [[ ${#} -ne 2 ]]; then
+    logerror "${0}: exactly 2 positional arguments required, ${#} provided"
+    usage
+    exit 1
+fi
+image_name=${1}
+file_name=${2}
+
 # Set script dependencies
 required_executables=(
     "dd"
@@ -435,15 +444,6 @@ for executable in "${required_executables[@]}"; do
         exit 1
     fi
 done
-
-# Handle positional arguments
-if [[ ${#} -ne 2 ]]; then
-    logerror "${0}: exactly 2 positional arguments required, ${#} provided"
-    usage
-    exit 1
-fi
-image_name=${1}
-file_name=${2}
 
 # Check if script is running as root
 if [[ $(id -u) != 0 ]]; then
