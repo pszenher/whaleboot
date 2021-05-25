@@ -25,7 +25,7 @@ Parameters:
   DISK_FILE                    Path of output disk file
 
 Options:
-  -h        --help             Display this message.
+  -h        --help             Display this message
             --debug            Print debug messages
   -H HOST   --hostname=HOST    Hostname of disk image (default: "whale")
   -m FILE   --mbr-path=FILE    Path of syslinux Master Boot Record file
@@ -67,7 +67,7 @@ $ docker run -v /var/run/docker.sock:/var/run/docker.sock \
 ```
 **Note:** When using the Docker image method, output images must be stated relative to the shell's current working directory or a device under `/dev`, else the image will be discarded upon container termination.
 
-The required `docker run` command is somewhat verbose as a result of the many permissions volume mounts required by `whaleboot`.  For convenience, the following can be run to permenantly add a `whaleboot` alias to the current user's `.bashrc` file:
+The required `docker run` command is somewhat verbose as a result of the many permissions and volume mounts required by `whaleboot`.  For convenience, the following can be run to permenantly add a `whaleboot` alias to the current user's `.bashrc` file:
 ```
 $ echo $'alias whaleboot=\'sudo docker run \
            -v $PWD:/mnt -v /dev:/dev -v /var/run/docker.sock:/var/run/docker.sock \

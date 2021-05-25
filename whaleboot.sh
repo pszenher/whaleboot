@@ -444,9 +444,9 @@ for executable in "${required_executables[@]}"; do
         missing_executables+=("${executable}")
     fi
 done
-if (( "${#missing_executables[@]}" )); then
-    missing_executables="$(printf ", \"%s\"" "${missing_executables[@]}")"
-    logerror "Required executable(s) ${missing_executables:2} not in path, exiting"
+if (("${#missing_executables[@]}")); then
+    missing_string="$(printf ", \"%s\"" "${missing_executables[@]}")"
+    logerror "Required executable(s) ${missing_string:2} not in path, exiting"
     exit 1
 fi
 
