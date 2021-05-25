@@ -13,7 +13,7 @@ Most tooling in the infrastructure as code (IaC) space are ill-suited to provisi
 ### Why Docker?
 - Uses a well-known and battle-tested system definition syntax
 - Easily run on any modern GNU/Linux operating system
-- Buildable and distribuatable via robust, low-cost cloud infrastructure
+- Buildable and distributable via robust, low-cost cloud infrastructure
 
 ## Usage
 [@@@]:usage-start
@@ -67,17 +67,17 @@ $ docker run -v /var/run/docker.sock:/var/run/docker.sock \
 ```
 **Note:** When using the Docker image method, output images must be stated relative to the shell's current working directory or a device under `/dev`, else the image will be discarded upon container termination.
 
-The required `docker run` command is somewhat verbose as a result of the many permissions and volume mounts required by `whaleboot`.  For convenience, the following can be run to permenantly add a `whaleboot` alias to the current user's `.bashrc` file:
+The required `docker run` command is somewhat verbose as a result of the many permissions and volume mounts required by `whaleboot`.  For convenience, the following can be run to permanently add a `whaleboot` alias to the current user's `.bashrc` file:
 ```
 $ echo $'alias whaleboot=\'sudo docker run \
            -v $PWD:/mnt -v /dev:/dev -v /var/run/docker.sock:/var/run/docker.sock \
            --privileged --rm -it pszenher/whaleboot\'' \
          >> ~/.bashrc
 ```
-The `sudo` command prefix can be omitted if the current user is a member of the `docker` unix group (for how user access to the `docker` impacts system security, see [the Docker documentation](https://docs.docker.com/engine/security/#docker-daemon-attack-surface)).
+The `sudo` command prefix can be omitted if the current user is a member of the `docker` Unix group (for how user access to the `docker` impacts system security, see [the Docker documentation](https://docs.docker.com/engine/security/#docker-daemon-attack-surface)).
 
 ## See Also
 - [docker-to-linux](https://github.com/iximiuz/docker-to-linux)
     - similar project specifically targeting virtual machine image generation
 - [Hashicorp Packer](https://github.com/hashicorp/packer)
-    - tool for creating virutal machine images and provisioning them on cloud-infrastructure
+    - tool for creating virtual machine images and provisioning them on cloud-infrastructure
