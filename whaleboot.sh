@@ -28,7 +28,7 @@
 ###   -h        --help             Display this message
 ###             --debug            Print debug messages
 ###   -H HOST   --hostname=HOST    Hostname of disk image (default: "whale")
-###   -m FILE   --mbr-path=FILE    Path of syslinux Master Boot Record file
+###   -m FILE   --mbr-path=FILE    Path of syslinux mbr.bin file (default: /usr/lib/syslinux/mbr/mbr.bin)
 ###   -s SIZE   --size=SIZE        Size of disk image (see man truncate(1) for SIZE arg semantics)
 ###   -y        --assume-yes       Automatic yes to prompts, run non-interactively
 ###
@@ -452,7 +452,7 @@ fi
 
 # Check that mbr.bin file exists
 if ! [ -f "${mbr_path}" ]; then
-    logerror "mbr.bin file could not be found at ${mbr_path}, exiting"
+    logerror "mbr.bin file could not be found at ${mbr_path} (is --mbr-path set properly?), exiting"
     exit 1
 fi
 

@@ -28,11 +28,21 @@ Options:
   -h        --help             Display this message
             --debug            Print debug messages
   -H HOST   --hostname=HOST    Hostname of disk image (default: "whale")
-  -m FILE   --mbr-path=FILE    Path of syslinux Master Boot Record file
+  -m FILE   --mbr-path=FILE    Path of syslinux mbr.bin file (default: /usr/lib/syslinux/mbr/mbr.bin)
   -s SIZE   --size=SIZE        Size of disk image (see man truncate(1) for SIZE arg semantics)
   -y        --assume-yes       Automatic yes to prompts, run non-interactively
 ```
 [@@@]:usage-end
+
+For WhaleBoot to produce a bootable image, the input Docker image must contain the components necessary to bring up a full operating system (that would otherwise be absent from a standard Docker image).  This includes:
+- compiled Linux kernel (`vmlinuz`)
+- initial ramdisk (`initrd`)
+- syslinux config file (at `/boot/syslinux.cfg`)
+- init system (e.g. `systemd`, `openrc`, etc.)
+
+WhaleBoot will not create these files automatically, nor enforce that they exist within the image prior to creation of a disk image.  It is the responsibility of the user to either ensure that these files are either present within the input Docker image, or to add them to the final output image.
+
+For examples of `Dockerfile`'s that demonstrate conformity to the above requirements, see [pszenher/jackal-docker](https://github.com/pszenher/jackal-docker).
 
 ## Dependencies
 The following executables are required to be in the system path for whaleboot to run:
