@@ -29,4 +29,16 @@ jobs:
           fetch-depth: 0
       - name: Run shfmt
         run: docker run --rm -v "$PWD/repo:/mnt" -w /mnt mvdan/shfmt:latest -d "/mnt"
+  readme-usage:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Repo
+        uses: actions/checkout@v2
+        with:
+          repository: ${{ github.repository }}
+          ref: master
+          path: repo
+          fetch-depth: 0
+      - name: Diff script and README usage statements
+        run: repo/.github/workflows/scripts/diff-usage.sh
 

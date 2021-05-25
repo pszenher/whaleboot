@@ -15,10 +15,10 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-### whaleboot.sh -- build bootable disk image from docker image
+### whaleboot -- build bootable disk image from docker image
 ###
 ### Usage:
-###   whaleboot.sh [options] DOCKER_IMAGE DISK_FILE
+###   whaleboot [options] DOCKER_IMAGE DISK_FILE
 ###
 ### Parameters:
 ###   DOCKER_IMAGE                 Name of docker image to use
