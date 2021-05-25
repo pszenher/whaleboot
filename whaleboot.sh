@@ -438,12 +438,23 @@ required_executables=(
 )
 
 # Check that all dependencies are in path and executable
+missing_executables=()
 for executable in "${required_executables[@]}"; do
     if ! [ -x "$(command -v "${executable}")" ]; then
-        logerror "Required executable \"${executable}\" not in path, exiting"
-        exit 1
+        missing_executables+=("${executable}")
     fi
 done
+if (( "${#missing_executables[@]}" )); then
+    missing_executables="$(printf ", \"%s\"" "${missing_executables[@]}")"
+    logerror "Required executable(s) ${missing_executables:2} not in path, exiting"
+    exit 1
+fi
+
+# Check that mbr.bin file exists
+if ! [ -f "${mbr_path}" ]; then
+    logerror "mbr.bin file could not be found at ${mbr_path}, exiting"
+    exit 1
+fi
 
 # Check if script is running as root
 if [[ $(id -u) != 0 ]]; then
