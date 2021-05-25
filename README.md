@@ -75,9 +75,9 @@ $ docker run -v /var/run/docker.sock:/var/run/docker.sock \
              pszenher/whaleboot \
              [options] DOCKER_IMAGE OUTPUT_FILE
 ```
-**Note:** When using the Docker image method, output images must be stated relative to the shell's current working directory or a device under `/dev`, else the image will be discarded upon container termination.
+**Note:** When using the Docker image method, output image filenames are limited to paths under shell's current working directory and `/dev`, else the image will be discarded upon container termination.
 
-The required `docker run` command is somewhat verbose as a result of the many permissions and volume mounts required by `whaleboot`.  For convenience, the following can be run to permanently add a `whaleboot` alias to the current user's `.bashrc` file:
+The required `docker run` command is somewhat verbose as a result of the many permissions and volume mounts required by `whaleboot`.  For convenience, the following can be run to permanently add a `whaleboot` bash alias to the current user's `.bashrc` file:
 ```
 $ echo $'alias whaleboot=\'sudo docker run \
            -v $PWD:/mnt -v /dev:/dev -v /var/run/docker.sock:/var/run/docker.sock \
