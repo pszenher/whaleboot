@@ -2,8 +2,14 @@
 
 set -o errexit -o pipefail -o noclobber -o nounset
 
-self_path="$( cd -- "$(dirname "${BASH_SOURCE[0]}")" >/dev/null 2>&1 ; pwd -P )"
-repo_root="$(cd "${self_path}"; git rev-parse --show-toplevel)"
+self_path="$(
+    cd -- "$(dirname "${BASH_SOURCE[0]}")" >/dev/null 2>&1
+    pwd -P
+)"
+repo_root="$(
+    cd "${self_path}"
+    git rev-parse --show-toplevel
+)"
 
 script_path="${repo_root}/whaleboot.sh"
 readme_path="${repo_root}/README.md"

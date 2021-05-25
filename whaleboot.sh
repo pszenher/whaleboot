@@ -25,7 +25,7 @@
 ###   DISK_FILE                    Path of output disk file
 ###
 ### Options:
-###   -h        --help             Display this message.
+###   -h        --help             Display this message
 ###             --debug            Print debug messages
 ###   -H HOST   --hostname=HOST    Hostname of disk image (default: "whale")
 ###   -m FILE   --mbr-path=FILE    Path of syslinux Master Boot Record file
