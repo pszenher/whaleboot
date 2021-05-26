@@ -40,7 +40,7 @@ For WhaleBoot to produce a bootable image, the input Docker image must contain t
 - syslinux config file (at `/boot/syslinux.cfg`)
 - init system (e.g. `systemd`, `openrc`, etc.)
 
-WhaleBoot will not create these files automatically, nor enforce that they exist within the image prior to creation of a disk image.  It is the responsibility of the user to either ensure that these files are either present within the input Docker image, or to add them to the final output image.
+WhaleBoot will not create these files automatically, nor enforce that they exist within the image prior to creation of a disk image.  It is the responsibility of the user to either ensure that these files are present within the input Docker image, or to add them to the final output image.
 
 For examples of `Dockerfile`'s that demonstrate conformity to the above requirements, see [pszenher/jackal-docker](https://github.com/pszenher/jackal-docker).
 
@@ -75,9 +75,9 @@ $ docker run -v /var/run/docker.sock:/var/run/docker.sock \
              pszenher/whaleboot \
              [options] DOCKER_IMAGE OUTPUT_FILE
 ```
-**Note:** When using the Docker image method, output image filenames are limited to paths under shell's current working directory and `/dev`, else the image will be discarded upon container termination.
+**Note:** When using the Docker image method, output image filenames must be restricted to paths under shell's current working directory or `/dev`, else the image will be discarded upon container termination.
 
-The required `docker run` command is somewhat verbose as a result of the many permissions and volume mounts required by `whaleboot`.  For convenience, the following can be run to permanently add a `whaleboot` bash alias to the current user's `.bashrc` file:
+The above `docker run` command is somewhat verbose as a result of the many permissions and volume mounts required by `whaleboot`.  For convenience, the following one-liner can be run in a terminal session to permanently add a `whaleboot` bash alias to the current user's `.bashrc` file:
 ```
 $ echo $'alias whaleboot=\'sudo docker run \
            -v $PWD:/mnt -v /dev:/dev -v /var/run/docker.sock:/var/run/docker.sock \
