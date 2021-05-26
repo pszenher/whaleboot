@@ -221,7 +221,11 @@ function init_disk_image() {
 
     # If target image filename doesn't exist, create the file
     if [ ! -e "${filename}" ]; then
-        loginfo "Image file ${filename} does not yet exist, creating"
+        logwarn "Image file ${filename} does not exist"
+        if ! ask "Create new image file ${filename} of size ${filesize}?"; then
+            logerror "disk image creation cancelled, exiting"
+            return 1
+        fi
         truncate -s "${filesize}" "${filename}"
     fi
 
@@ -255,7 +259,7 @@ function init_disk_partitions() {
 
     logwarn "This action will erase ALL DATA on ${file_details}"
     if ! ask "Overwrite ${file_details}?" "N"; then
-        logwarn "disk partitioning cancelled, exiting"
+        logerror "disk partitioning cancelled, exiting"
         return 1
     fi
 
@@ -466,6 +470,16 @@ fi
 if [ -z "${assume_yes:-}" ] && ! [ -t 0 ]; then
     logerror "${0}: must run in a tty (unless -y flag is passed)"
     exit 1
+fi
+
+# Check if selected docker image is available locally, else ask to pull
+if [[ "$(docker images -q "${image_name}" 2>/dev/null)" == "" ]]; then
+    logwarn "Failed to find docker image ${image_name} locally"
+    if ! ask "Attempt to pull from remote source?" "Y"; then
+        logerror "Docker image fetch cancelled, exiting"
+        exit 1
+    fi
+    docker pull "${image_name}" 2> >(logpipe "error" "Docker pull: ") | logpipe "warn" "Docker pull: "
 fi
 
 # Invoke main function

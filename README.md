@@ -71,7 +71,7 @@ The `whaleboot` script will be installed into `/usr/local/bin` by default.
 #### From Docker Hub:
 ```
 $ docker run -v /var/run/docker.sock:/var/run/docker.sock \
-             -v "$PWD:/mnt" -v /dev/:dev --privileged --rm -it \
+             -v "$PWD:/mnt" -v /dev:/dev --privileged --rm -it \
              pszenher/whaleboot \
              [options] DOCKER_IMAGE OUTPUT_FILE
 ```
