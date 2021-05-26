@@ -84,7 +84,7 @@ $ echo $'alias whaleboot=\'sudo docker run \
            --privileged --rm -it pszenher/whaleboot\'' \
          >> ~/.bashrc
 ```
-The `sudo` command prefix can be omitted if the current user is a member of the `docker` Unix group (for how user access to the `docker` impacts system security, see [the Docker documentation](https://docs.docker.com/engine/security/#docker-daemon-attack-surface)).
+The `sudo` command prefix can be omitted if the current user is a member of the `docker` Unix group (for how user access to the `docker` group impacts system security, see [the Docker documentation](https://docs.docker.com/engine/security/#docker-daemon-attack-surface)).
 
 ## See Also
 - [docker-to-linux](https://github.com/iximiuz/docker-to-linux)
