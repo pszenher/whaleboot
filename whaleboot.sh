@@ -304,10 +304,11 @@ function init_extlinux_config() {
 DEFAULT WhaleBoot
 LABEL WhaleBoot
   KERNEL /boot/vmlinuz
-  APPEND initrd=/boot/initrd.img boot=live toram=filesystem.squashfs
+  APPEND rw initrd=/boot/initrd.img root=/dev/sda1
 TIMEOUT 10
-PROMPT 2
+PROMPT 0
 EOF
+# boot=live toram=filesystem.squashfs
 }
 
 function install_bootloader_kernel() {
@@ -319,10 +320,11 @@ function install_bootloader_kernel() {
     local rootdir
     rootdir=${1}
 
-    unsquashfs \
-	-f -d "${rootdir}" \
-	-extract-file <( echo "/boot" ) \
-	"${rootdir}/live/filesystem.squashfs"
+    # # Take boot directory from internal image (when using squashfs)
+    # unsquashfs \
+    #     -f -d "${rootdir}" \
+    #     -extract-file <( echo "/boot" ) \
+    #     "${rootdir}/live/filesystem.squashfs"
 
     
     # # TODO:  This is pretty jank, refactor
@@ -356,7 +358,7 @@ function init_disk_mount() {
     fi
 
     loginfo "Mounting formatted disk partition at ${mountdir}"
-    mount -t ext4 "${partition}" "${mountdir}"
+    mount -t ext2 "${partition}" "${mountdir}"
 }
 
 function main() {
@@ -371,11 +373,12 @@ function main() {
     losetup -o $((512 * 2048)) "${loopback_dev}" "${file_name}" 2>&1 | logpipe "error"
     loginfo "Loopback device configured, \"${loopback_dev}\""
 
-    loginfo "Formatting disk partition as ext4"
+    # loginfo "Formatting disk partition as ext4"
     # NOTE: Option flag ~-O ^64bit~ added to force 32bit ext4 formatting
     #       (syslinux does not support booting from ext4-64bit)
     # mkfs.ext4 -O ^64bit -q "${loopback_dev}" | logpipe "warn" "mkfs.ext4: "
-    mkfs.ext2 -q "${loopback_dev}" | logpipe "warn" "mkfs.ext2: "
+    loginfo "Formatting disk partition as ext2"
+    mkfs.ext2 -L "whaleboot-root" -q "${loopback_dev}" | logpipe "warn" "mkfs.ext2: "
 
     mount_dir="$(mktemp -d)"
     init_disk_mount "${loopback_dev}" "${mount_dir}"
@@ -403,15 +406,14 @@ function main() {
     
     docker export "${docker_container}" 2> >(logpipe "error" "docker export: ") \
         | pv -ptebars "$(docker image inspect "${image_name}" | jq '.[0].Size')" \
-	| sqfstar -quiet -no-progress -exit-on-error "${mount_dir}/live/filesystem.squashfs"
-
-    # | tar -xf - --exclude="{tmp,sys,proc}" -C "${mount_dir}"
+        | tar -xf - --exclude="{tmp,sys,proc}" -C "${mount_dir}"
+    # | sqfstar -quiet -no-progress -exit-on-error "${mount_dir}/live/filesystem.squashfs"
 
     loginfo "Installing kernel and initrd at bootloader path"
     install_bootloader_kernel "${mount_dir}"
     
-    # loginfo "Writing system hostname \"${system_hostname}\" to disk image"
-    # init_system_hostname "${system_hostname}" "${mount_dir}"
+    loginfo "Writing system hostname \"${system_hostname}\" to disk image"
+    init_system_hostname "${system_hostname}" "${mount_dir}"
 
     logsuccess "disk image creation complete"
 
