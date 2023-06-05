@@ -290,6 +290,56 @@ function init_system_hostname() {
 EOF
 }
 
+function init_extlinux_config() {
+    # Setup extlinux bootloader configuration of filesystem at ${rootdir}
+    # Usage:
+    #     init_extlinux_config ${rootdir}
+
+    check_pos_args ${#} 1
+    local rootdir
+    rootdir=${1}
+
+    mkdir -p "${rootdir}/boot/extlinux"
+    cat <<EOF | tee "${rootdir}/boot/extlinux/extlinux.conf" >/dev/null
+DEFAULT WhaleBoot
+LABEL WhaleBoot
+  KERNEL /boot/vmlinuz
+  APPEND initrd=/boot/initrd.img boot=live toram=filesystem.squashfs
+TIMEOUT 10
+PROMPT 2
+EOF
+}
+
+function install_bootloader_kernel() {
+    # Copy linux kernel and init ramdisk from docker image to ${rootdir}/boot
+    # Usage:
+    #     install_bootloader_kernel ${rootdir}
+
+    check_pos_args ${#} 1
+    local rootdir
+    rootdir=${1}
+
+    unsquashfs \
+	-f -d "${rootdir}" \
+	-extract-file <( echo "/boot" ) \
+	"${rootdir}/live/filesystem.squashfs"
+
+    
+    # # TODO:  This is pretty jank, refactor
+    # unsquashfs \
+    # 	-f -d "${rootdir}" \
+    # 	-extract-file <( echo "/boot/vmlinuz";     \
+    # 			 echo "/boot/initrd.img" ) \
+    # 	"${rootdir}/live/filesystem.squashfs"
+
+    # unsquashfs \
+    # 	-f -d "${rootdir}" \
+    # 	-extract-file <( echo "/boot/$(readlink ${rootdir}/boot/vmlinuz)";     \
+    # 			 echo "/boot/$(readlink ${rootdir}/boot/initrd.img)" ) \
+    # 	"${rootdir}/live/filesystem.squashfs"
+
+}
+
 function init_disk_mount() {
     # Initialize ${partition} disk mount location and mount
     # Usage:
@@ -322,10 +372,25 @@ function main() {
     loginfo "Loopback device configured, \"${loopback_dev}\""
 
     loginfo "Formatting disk partition as ext4"
-    mkfs.ext4 -q "${loopback_dev}" | logpipe "warn" "mkfs.ext4: "
+    # NOTE: Option flag ~-O ^64bit~ added to force 32bit ext4 formatting
+    #       (syslinux does not support booting from ext4-64bit)
+    # mkfs.ext4 -O ^64bit -q "${loopback_dev}" | logpipe "warn" "mkfs.ext4: "
+    mkfs.ext2 -q "${loopback_dev}" | logpipe "warn" "mkfs.ext2: "
 
     mount_dir="$(mktemp -d)"
     init_disk_mount "${loopback_dev}" "${mount_dir}"
+
+    loginfo "Writing extlinux configuration files to disk image"
+    init_extlinux_config "${mount_dir}"
+    
+    loginfo "Installing extlinux bootloader on disk image"
+    extlinux --install "${mount_dir}"/boot/extlinux 2>&1 \
+        | logpipe "warn" "extlinux: "
+
+    loginfo "Writing syslinux mbr to disk image"
+    dd if="${mbr_path}" of="${file_name}" \
+        bs=440 count=1 conv=notrunc status=none 2>&1 \
+        | logpipe "warn" "syslinux dd: "
 
     loginfo "Copying filesystem from docker image to disk image"
     docker_container=$(
@@ -333,21 +398,20 @@ function main() {
             2> >(logpipe "error" "docker run: ")
     )
 
+    # TODO: wrap in function call, reorder build process
+    mkdir -p "${mount_dir}/live"
+    
     docker export "${docker_container}" 2> >(logpipe "error" "docker export: ") \
         | pv -ptebars "$(docker image inspect "${image_name}" | jq '.[0].Size')" \
-        | tar -xf - --exclude="{tmp,sys,proc}" -C "${mount_dir}"
+	| sqfstar -quiet -no-progress -exit-on-error "${mount_dir}/live/filesystem.squashfs"
 
-    loginfo "Writing system hostname \"${system_hostname}\" to disk image"
-    init_system_hostname "${system_hostname}" "${mount_dir}"
+    # | tar -xf - --exclude="{tmp,sys,proc}" -C "${mount_dir}"
 
-    loginfo "Installing extlinux bootloader on disk image"
-    extlinux --install "${mount_dir}"/boot 2>&1 \
-        | logpipe "warn" "extlinux: "
-
-    loginfo "Writing syslinux mbr to disk image"
-    dd if="${mbr_path}" of="${file_name}" \
-        bs=440 count=1 conv=notrunc status=none 2>&1 \
-        | logpipe "warn" "syslinux dd: "
+    loginfo "Installing kernel and initrd at bootloader path"
+    install_bootloader_kernel "${mount_dir}"
+    
+    # loginfo "Writing system hostname \"${system_hostname}\" to disk image"
+    # init_system_hostname "${system_hostname}" "${mount_dir}"
 
     logsuccess "disk image creation complete"
 
