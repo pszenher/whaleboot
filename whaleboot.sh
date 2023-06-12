@@ -304,7 +304,8 @@ function init_extlinux_config() {
 DEFAULT WhaleBoot
 LABEL WhaleBoot
   KERNEL /boot/vmlinuz
-  APPEND rw initrd=/boot/initrd.img root=/dev/sda1
+  INITRD /boot/initrd.img
+  APPEND rw root=/dev/sda1 console=tty0 console=ttyS0,115200
 TIMEOUT 10
 PROMPT 0
 EOF
@@ -358,7 +359,7 @@ function init_disk_mount() {
     fi
 
     loginfo "Mounting formatted disk partition at ${mountdir}"
-    mount -t ext2 "${partition}" "${mountdir}"
+    mount -t ext4 "${partition}" "${mountdir}"
 }
 
 function main() {
@@ -376,9 +377,10 @@ function main() {
     # loginfo "Formatting disk partition as ext4"
     # NOTE: Option flag ~-O ^64bit~ added to force 32bit ext4 formatting
     #       (syslinux does not support booting from ext4-64bit)
-    # mkfs.ext4 -O ^64bit -q "${loopback_dev}" | logpipe "warn" "mkfs.ext4: "
-    loginfo "Formatting disk partition as ext2"
-    mkfs.ext2 -L "whaleboot-root" -q "${loopback_dev}" | logpipe "warn" "mkfs.ext2: "
+    loginfo "Formatting disk partition as ext4"
+    mkfs.ext4 -O ^64bit -q "${loopback_dev}" | logpipe "warn" "mkfs.ext4: "
+    # loginfo "Formatting disk partition as ext2"
+    # mkfs.ext2 -L "whaleboot-root" -q "${loopback_dev}" | logpipe "warn" "mkfs.ext2: "
 
     mount_dir="$(mktemp -d)"
     init_disk_mount "${loopback_dev}" "${mount_dir}"
