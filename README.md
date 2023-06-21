@@ -86,6 +86,33 @@ $ echo $'alias whaleboot=\'sudo docker run \
 ```
 The `sudo` command prefix can be omitted if the current user is a member of the `docker` Unix group (for how user access to the `docker` group impacts system security, see [the Docker documentation](https://docs.docker.com/engine/security/#docker-daemon-attack-surface)).
 
+## Limitations
+A common footgun encountered when seeking full control over a
+Dockerized environment is the small set of files which Docker's
+top-level read-only layer shadows.  [As of the time of writing](https://github.com/moby/moby/blob/659604f9ee60f147020bdd444b26e4b5c636dc28/daemon/initlayer/setup_unix.go#L24), these are:
+```
+		"/dev/pts":         "dir",
+		"/dev/shm":         "dir",
+		"/proc":            "dir",
+		"/sys":             "dir",
+		"/.dockerenv":      "file",
+		"/etc/resolv.conf": "file",
+		"/etc/hosts":       "file",
+		"/etc/hostname":    "file",
+		"/dev/console":     "file",
+		"/etc/mtab":        "/proc/mounts",
+```
+
+While it is possible (in a limited capacity) to modify these files at
+image build time, instantiating the image into a container will result
+in each of the above file paths being shadowed by the Docker runtime daemon.
+
+In order to circumvent this limitation (so that these files may be
+kept in their image-customized form in the final disk image), **[TODO:
+Actually fix this (i.e.: something, something,
+`whaleboot-manifest.yaml`)]**
+
+
 ## See Also
 - [docker-to-linux](https://github.com/iximiuz/docker-to-linux)
     - similar project specifically targeting virtual machine image generation
