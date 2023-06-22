@@ -1,4 +1,4 @@
-FROM alpine:3.13
+FROM alpine:3.18
 ARG script_name="whaleboot.sh"
 
 # Install whaleboot dependencies

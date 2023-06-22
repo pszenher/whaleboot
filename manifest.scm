@@ -1,4 +1,5 @@
 (specifications->manifest
  '("jq"
    "pv"
-   "syslinux"))
+   "syslinux"
+   "shellcheck"))
