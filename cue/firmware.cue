@@ -1,20 +1,29 @@
 package whaleboot
 
-#EfiConfig: {
-    "efi-partition": {
-		name: string
-    }
+#FirmwareConfig: {
     "root-partition": {
-		name:string
+	name: string
+    }
+    ...
+}
+
+#EfiConfig: #FirmwareConfig & {
+    "mode": *"efi" | "hybrid"
+    "efi-partition": {
+	name: string
     }
     "efi-srcpath": #UnixPath
     "efi-installpath": #UnixPath
+    ...
 }
 
-#BiosConfig: {
-    rootpartition: {
-		name:string
-    }
-    mbrbinpath: string
+#BiosConfig: #FirmwareConfig & {
+    "mode": *"bios" | "hybrid"
+    "mbr-srcpath": string
+    ...
 }
 
+#HybridConfig: #EfiConfig & #BiosConfig & {
+    "mode": "hybrid"
+    ...
+}

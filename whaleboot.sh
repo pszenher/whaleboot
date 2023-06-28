@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 
-# Copyright (C) 2021 Paul Szenher
+# Copyright (C) 2023 Paul Szenher
 #
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -27,9 +27,11 @@
 ### Options:
 ###   -h        --help             Display this message
 ###             --debug            Print debug messages
-###   -H HOST   --hostname=HOST    Hostname of disk image (default: "whale")
-###   -m FILE   --mbr-path=FILE    Path of syslinux mbr.bin file (default: /usr/lib/syslinux/mbr/mbr.bin)
-###   -s SIZE   --size=SIZE        Size of disk image (see man truncate(1) for SIZE arg semantics)
+###             --dryrun           Simulate run, don't write to disk
+# ###   -H HOST   --hostname=HOST    Hostname of disk image (default: "whale")
+# ###   -m FILE   --mbr-path=FILE    Path of syslinux mbr.bin file (default: /usr/lib/syslinux/mbr/mbr.bin)
+###   -s SIZE   --size=SIZE        Size of disk image (default: "5G")
+###                                (see man truncate(1) for SIZE arg semantics)
 ###   -y        --assume-yes       Automatic yes to prompts, run non-interactively
 ###
 
@@ -38,184 +40,16 @@ set -o errexit -o pipefail -o noclobber -o nounset
 trap "catch_exit" EXIT
 trap "catch_err" ERR
 
+script_path="$(dirname ${0})"
+
 path_real="${PATH}"
 # shellcheck disable=SC2123
 PATH=""
 
-# Declare runcmd bash associative-array
-declare -A runcmd
+# Declare runcmd as global bash associative-array
+declare -A -g runcmd
 
-function usage() {
-    # Use file header as usage guide
-    # Usage:
-    #     usage
-    # Reference: https://samizdat.dev/help-message-for-shell-scripts/
-
-    ${runcmd[sed]} -rn 's/^### ?/ /;T;p' "${0}"
-}
-
-function ask() {
-    # General-purpose y-or-n function
-    # Usage:
-    #     ask ${prompt} [${Y|N}]
-
-    check_pos_args ${#} 1 2
-    local prompt default reply
-
-    # Parse passed default argument
-    case ${2:-} in
-        Y) prompt='Y/n' ;;
-        N) prompt='y/N' ;;
-        "") prompt="y/n" ;;
-        *)
-            logerror "Invalid default option \"${2:-}\""
-            exit 1
-            ;;
-    esac
-    default="${2:-}"
-
-    # Return yes if ${assume_yes} variable is set
-    if [[ -n "${assume_yes:-}" ]]; then
-        echo "${1} [${prompt}] (assuming yes)"
-        return 0
-    fi
-
-    # Loop until valid input is provided
-    while true; do
-        echo -n "${1} [${prompt}] " && read -r reply </dev/tty
-        if [[ -z ${reply} ]]; then reply=${default}; fi
-        case "${reply}" in
-            Y | y) return 0 ;;
-            N | n) return 1 ;;
-            *) ;;
-        esac
-    done
-}
-
-function check_pos_args() {
-    # Assert num passed args = num expected, else return nonzero
-    # Usage:
-    #     check_pos_args ${nargs} {${nexact}|${nmin} ${nmax}}
-
-    if [[ "${FUNCNAME[1]}" != "${FUNCNAME[0]}" ]]; then
-        check_pos_args ${#} 2 3
-    fi
-
-    if [[ -n "${3-}" ]]; then
-        if [[ "${1}" < "${2}" ]]; then
-            logerror "${FUNCNAME[1]}: at least ${2} positional arguments required," \
-                "${1} provided"
-            return 1
-        elif [[ "${1}" > "${3}" ]]; then
-            logerror "${FUNCNAME[1]}: at most ${3} positional arguments allowed," \
-                "${1} provided"
-            return 1
-        fi
-    elif [[ "${1}" != "${2}" ]]; then
-        logerror "${FUNCNAME[1]}: exactly ${2} positional arguments required," \
-            "${1} provided"
-        return 1
-    fi
-}
-
-function log() {
-    # Log data to console with set format (cannot be invoked directly)
-    # Usage:
-    #     log ${string} [${color}]
-
-    check_pos_args ${#} 1 2
-
-    # Only allow calls from log wrapper functions
-    if [[ "${FUNCNAME[1]}" != log* ]]; then
-        logerror "log() function illegally invoked by ${FUNCNAME[1]}, use wrapper function" \
-            "(loginfo, etc.) instead"
-        return 1
-    fi
-
-    # Log in color if tty is available and tput is installed
-    if [[ -n "${2-}" ]] && [[ -t 2 ]] && [[ -x "${runcmd[tput]:-}" ]]; then
-        case "${2}" in
-            red) line_color="$(${runcmd[tput]} setaf 1)" ;;
-            green) line_color="$(${runcmd[tput]} setaf 2)" ;;
-            yellow) line_color="$(${runcmd[tput]} setaf 3)" ;;
-            none) line_color="" ;;
-            *)
-                logerror "Invalid line color \"${2}\""
-                return 1
-                ;;
-        esac
-        line_reset="$(${runcmd[tput]} sgr0)"
-    else
-        line_color=""
-        line_reset=""
-    fi
-
-    # Add function name and line number if debug flag set
-    if [[ -n "${debug-}" ]]; then
-        line_prefix=$(printf "${0}: %3d:%-23s --> " "${BASH_LINENO[1]}" "${FUNCNAME[2]}()")
-    else
-        line_prefix=""
-    fi
-
-    # Output log message to stderr
-    echo "${line_color}${line_prefix}${1}${line_reset}" >&2
-}
-
-function logsuccess() { log "[SUCCESS]: ${*}" green; }
-function loginfo() { log "[INFO]: ${*}" none; }
-function logwarn() { log "[WARN]: ${*}" yellow; }
-function logerror() { log "[ERROR]: ${*}" red; }
-
-function logpipe() {
-    # Send stdin data to log wrapper functions (success, info, warn, error)
-    # Usage:
-    #     echo "data to log..." | logpipe ${severity} [${prefix}] [${suffix}]
-
-    check_pos_args ${#} 1 3
-    local stdin severity
-    stdin="$(${runcmd[cat]} -)"
-    severity=${1}
-
-    if [[ -z "${stdin}" ]]; then return; fi
-    if [[ -n "${2-}" ]]; then stdin="${2}${stdin}"; fi
-    if [[ -n "${3-}" ]]; then stdin="${stdin}${3}"; fi
-
-    case "${severity}" in
-        success) logsuccess "${stdin}" ;;
-        info) loginfo "${stdin}" ;;
-        warn) logwarn "${stdin}" ;;
-        error) logerror "${stdin}" ;;
-        *)
-            logerror "Invalid logpipe severity \"${severity}\""
-            return 1
-            ;;
-    esac
-}
-
-function cleanup() {
-    # Cleanup function to run on exit
-    # Usage:
-    #     cleanup
-
-    # Unmount and delete loopback device if it is defined
-    if [[ -n "${loopback_dev-}" ]]; then
-        loginfo "Unmounting disk image device ${loopback_dev}"
-        ${runcmd[umount]} "${loopback_dev}" && ${runcmd[sync]}
-        ${runcmd[losetup]} -d "${loopback_dev}"
-    fi
-
-    # Remove temporary mount directory
-    if [[ -d "${mount_dir-}" ]]; then
-        loginfo "Removing temporary mount dir ${mount_dir}"
-        ${runcmd[rmdir]} "${mount_dir}"
-    fi
-
-    # Remove temporary docker container if it is defined
-    if [[ -n "${docker_container-}" ]]; then
-        loginfo "Removing temporary docker container"
-        ${runcmd[docker]} container rm "${docker_container}" >/dev/null
-    fi
-}
+source "${script_path}/src/util.bash"
 
 function catch_exit() {
     # Handler function for trapping process signals
@@ -243,185 +77,134 @@ function catch_err() {
     exit "${err_code}"
 }
 
-function find_command() {
-    # Lookup command ${target_cmd} in PATH, send executable file path to stdout
+function cleanup() {
+    # Cleanup function to run on exit
     # Usage:
-    #     find_command ${target_cmd}
+    #     cleanup
 
-    check_pos_args ${#} 1
-    local target_cmd target_path
-    target_cmd=${1}
-
-    target_path="$(PATH="${path_real}" command -v "${target_cmd}")"
-    if [[ -x "${target_path}" ]]; then
-        echo "${target_path}"
-        return 0
-    fi
-    if [[ -n "${target_path}" ]]; then
-        logwarn "Command '${target_cmd}' file path was found at '${target_path}', but is not executable"
-    fi
-    return 1
-}
-
-function init_disk_image() {
-    # Initialize ${filename} disk image
-    # Usage:
-    #     init_disk_image ${filename} ${filesize}
-
-    check_pos_args ${#} 2
-    local filename filesize
-    filename=${1}
-    filesize=${2}
-
-    # If target image filename doesn't exist, create the file
-    if [[ ! -e "${filename}" ]]; then
-        logwarn "Image file ${filename} does not exist"
-        # shellcheck disable=SC2310
-        if ! ask "Create new image file ${filename} of size ${filesize}?"; then
-            logerror "disk image creation cancelled, exiting"
-            return 1
-        fi
-        ${runcmd[truncate]} -s "${filesize}" "${filename}"
+    # Unmount and delete loopback device if it is defined
+    if [[ -n "${loopback_dev-}" ]]; then
+        loginfo "Unmounting disk image device ${loopback_dev}"
+        ${runcmd[umount]} "${loopback_dev}" && ${runcmd[sync]}
+        ${runcmd[losetup]} -d "${loopback_dev}"
     fi
 
-}
-
-function init_disk_partitions() {
-    # Initialize ${filename} disk partitions
-    # Usage:
-    #     init_disk_partition ${filename}
-
-    check_pos_args ${#} 1
-    local filename disk_model file_details
-    filename=${1}
-
-    if [[ -z "${filename-}" ]]; then
-        logerror "No image filename provided"
-        return 1
+    # Remove temporary mount directory
+    if [[ -d "${mount_dir-}" ]]; then
+        loginfo "Removing temporary mount dir ${mount_dir}"
+        ${runcmd[rmdir]} "${mount_dir}"
     fi
 
-    if [[ -b "${filename}" ]]; then
-        loginfo "Image file ${filename} is a block device, using physical disk methods"
-        disk_model=$(
-	    ${runcmd[udevadm]} \
-		info "${filename}" -q property \
-		| ${runcmd[sed]} -rn 's/^ID_MODEL=//;T;p'
-	)
-        file_details="block device ${filename} ${disk_model:+(${disk_model})}"
-    elif [[ -f "${filename}" ]]; then
-        loginfo "Image file ${filename} is a regular file, using disk image methods"
-        file_details="image file ${filename}"
-    else
-        logerror "Image file is neither a block device nor a regular file"
-        return 1
+    # Remove temporary docker container if it is defined
+    if [[ -n "${docker_container-}" ]]; then
+        loginfo "Removing temporary docker container"
+        ${runcmd[docker]} container rm "${docker_container}" >/dev/null
     fi
-
-    logwarn "This action will erase ALL DATA on ${file_details}"
-    # shellcheck disable=SC2310
-    if ! ask "Overwrite ${file_details}?" "N"; then
-        logerror "disk partitioning cancelled, exiting"
-        return 1
-    fi
-
-    loginfo "Writing partition table to disk image"
-
-    echo "label: dos" \
-        | ${runcmd[sfdisk]} -q "${filename}" 2>&1 \
-        | logpipe "warn" "sfdisk: "
-    echo "start=2048, type=83, bootable" \
-        | ${runcmd[sfdisk]} -q "${filename}" 2>&1 \
-        | logpipe "warn" "sfdisk: "
 }
 
-function init_system_hostname() {
-    # Set hostname ${hostname} of filesystem at ${rootdir}
-    # Usage:
-    #     init_system_hostname ${hostname} ${rootdir}
-
-    check_pos_args ${#} 2
-    local hostname rootdir
-    hostname=${1}
-    rootdir=${2}
-
-    echo "${hostname}" | ${runcmd[tee]} "${rootdir}/etc/hostname" >/dev/null
-    ${runcmd[cat]} <<EOF | ${runcmd[tee]} "${rootdir}/etc/hosts" >/dev/null
-127.0.0.1	localhost
-127.0.1.1	${hostname}
-EOF
-}
-
-function init_extlinux_config() {
-    # Setup extlinux bootloader configuration of filesystem at ${rootdir}
-    # Usage:
-    #     init_extlinux_config ${rootdir}
-
-    check_pos_args ${#} 1
-    local rootdir
-    rootdir=${1}
-
-    ${runcmd[mkdir]} -p "${rootdir}/boot/extlinux"
-    ${runcmd[cat]} <<EOF | ${runcmd[tee]} "${rootdir}/boot/extlinux/extlinux.conf" >/dev/null
-DEFAULT WhaleBoot
-LABEL WhaleBoot
-  KERNEL /boot/vmlinuz
-  INITRD /boot/initrd.img
-  APPEND rw root=/dev/sda1 console=tty0 console=ttyS0,115200
-TIMEOUT 10
-PROMPT 0
-EOF
-    # boot=live toram=filesystem.squashfs
-}
-
-function install_bootloader_kernel() {
-    # Copy linux kernel and init ramdisk from docker image to ${rootdir}/boot
-    # Usage:
-    #     install_bootloader_kernel ${rootdir}
-
-    check_pos_args ${#} 1
-    local rootdir
-    rootdir=${1}
-
-    # # Take boot directory from internal image (when using squashfs)
-    # unsquashfs \
-    #     -f -d "${rootdir}" \
-    #     -extract-file <( echo "/boot" ) \
-    #     "${rootdir}/live/filesystem.squashfs"
-
-    # # TODO:  This is pretty jank, refactor
-    # unsquashfs \
-    # 	-f -d "${rootdir}" \
-    # 	-extract-file <( echo "/boot/vmlinuz";     \
-    # 			 echo "/boot/initrd.img" ) \
-    # 	"${rootdir}/live/filesystem.squashfs"
-
-    # unsquashfs \
-    # 	-f -d "${rootdir}" \
-    # 	-extract-file <( echo "/boot/$(readlink ${rootdir}/boot/vmlinuz)";     \
-    # 			 echo "/boot/$(readlink ${rootdir}/boot/initrd.img)" ) \
-    # 	"${rootdir}/live/filesystem.squashfs"
-
-}
-
-function init_disk_mount() {
-    # Initialize ${partition} disk mount location and mount
-    # Usage:
-    #     init_disk_mount ${partition} ${mountdir}
-
-    check_pos_args ${#} 2
-    local partition mountdir
-    partition=${1}
-    mountdir=${2}
-
-    if [[ ! -d "${mountdir}" ]]; then
-        logerror "Target mount dir ${mountdir} is not a directory"
-        return 1
-    fi
-
-    loginfo "Mounting formatted disk partition at ${mountdir}"
-    ${runcmd[mount]} -t ext4 "${partition}" "${mountdir}"
-}
+source "${script_path}/src/disk.bash"
+source "${script_path}/src/bootloader.bash"
+source "${script_path}/src/files.bash"
 
 function main() {
+    local loopback_device \
+	  loopback_partition_nums \
+	  container_name \
+	  whaleboot_utils_image
+	  # manifest_content
+    
+    loginfo "Identifying/creating disk target"
+    init_disk_image "${file_name}" "${image_file_size}"
+
+    loginfo "Reading manifest from target Docker image"
+    container_name="whaleboot-temp-${RANDOM}"
+    ${runcmd[docker]} create --name="${container_name}" "${image_name}" \
+        2> >(logpipe "error" "Docker create: ") \
+	| logpipe "warn" "Docker create: "
+    loginfo "Created temporary container '${container_name}'"
+    
+    # manifest_content="$(${runcmd[docker]} cp "${container_name}:/whaleboot-manifest.yaml" -)"
+    # loginfo "Read manifest content '${manifest_content}'"
+    
+    loginfo "Building whaleboot-utils docker image"
+    whaleboot_utils_image="$(${runcmd[cat]} <<EOF | ${runcmd[docker]} build -q -f - "." 2> >(logpipe "error" "Docker build: ")
+
+FROM ${image_name} AS root-image
+FROM alpine:3.18
+# need GNU sed for '-z' flag
+RUN apk add syslinux \
+    	    grub \
+	    bash \
+	    sed
+RUN apk add -X https://dl-cdn.alpinelinux.org/alpine/edge/testing \
+    cue-cli
+COPY . /whaleboot
+COPY --from=root-image /whaleboot-manifest.yaml /
+WORKDIR /whaleboot/cue
+RUN cue eval --out json -cE /whaleboot-manifest.yaml /whaleboot/cue/test.cue > /whaleboot-manifest.json
+WORKDIR /
+EOF
+
+)"
+
+    loginfo "Binding loopback block device"
+    loopback_device="$(init_loopback_dev "${file_name}")"
+    loginfo "Loopback device configured on '${loopback_device}'"
+
+    # Prepare trap to cleanup loop device on process exit
+    trap_push "EXIT" "cleanup_loopback_dev" "${loopback_device}"
+    
+    # Perform partition of loopback device according to whaleboot-manifest.json
+    ${runcmd[docker]} \
+	run --rm --device="${loopback_device}" \
+	"${whaleboot_utils_image}" \
+	/whaleboot/whaleboot.sh partition -c "/whaleboot-manifest.json" "${loopback_device}" \
+	2> >(logpipe "error" "docker whaleboot-utils: ")
+
+    # Destroy loop device and recreate, this time with PARTSCAN for
+    # new loop[0-9]+p[0-9]+ device detection
+    # TODO: verify that the below runs:
+    #           'cleanup_loopback_dev "${loopback_device}"'
+    trap_pop "EXIT"
+    
+    loopback_device="$(init_loopback_dev "${file_name}")"
+    loginfo "Loopback device reconfigured on '${loopback_device}'"
+
+    # Install whaleboot docker image to disk
+    # 
+    # FIXME: using the api this way will require that the docker
+    #        daemon socket be mounted on the guest, do we want this?
+    #        SOLUTION: instead, we can just pipe the tarfile from
+    #        export -> stdin on the host...
+    #
+    # TODO: add each partition index from ${part_num} above as
+    #       separate "--device=" flag.  DONE:  now test that it lexes...
+    loopback_partition_nums=( "$(${runcmd[partx]} -sgo nr /dev/loop0)" )
+    ${runcmd[docker]} export "${container_name}" \
+		      2> >(logpipe "error" "docker export: ") \
+	| ${runcmd[docker]} \
+	      run --rm -i \
+	      --device="${loopback_device}" \
+	      $(printf "--device=${loopback_device}p%s\n" "${loopback_partitions[@]}") \
+	      "${whaleboot_utils_image}" \
+	      whaleboot install "${loopback_device}" \
+	      2> >(logpipe "error" "docker export: ")
+
+    if [[ -n "${enable_qemu_test:-}" ]]; then
+	loginfo "Testing created image using qemu"
+	${runcmd[docker]} \
+	    run --rm \
+	    --device="${loopback_device}" \
+	    "${whaleboot_utils_image}" \
+	    whaleboot test "${loopback_device}"
+    else
+	loginfo "Testing not enabled, skipping qemu tests"
+    fi
+
+    exit 0
+}
+
+function main_old() {
     loginfo "Initializing disk image"
     init_disk_image "${file_name}" "${image_file_size}"
 
@@ -429,10 +212,16 @@ function main() {
     init_disk_partitions "${file_name}"
 
     loginfo "Configuring loopback block device for disk image"
-    loopback_dev=$(${runcmd[losetup]} -f)
+    loopback_dev=$(
+        ${runcmd[losetup]} -f
+    )
+    # ${runcmd[losetup]} \
+    #     -o $((512 * 2048)) "${loopback_dev}" "${file_name}" 2>&1 \
+    #     | logpipe "error"
     ${runcmd[losetup]} \
-        -o $((512 * 2048)) "${loopback_dev}" "${file_name}" 2>&1 \
+	-P "${loopback_dev}" "${file_name}" 2>&1 \
         | logpipe "error"
+
     loginfo "Loopback device configured, \"${loopback_dev}\""
 
     # loginfo "Formatting disk partition as ext4"
@@ -460,7 +249,7 @@ function main() {
     ${runcmd[dd]} \
         if="${mbr_path}" of="${file_name}" \
         bs=440 count=1 conv=notrunc status=none 2>&1 \
-        | logpipe "warn" "syslinux dd: "
+        | logpipe "error" "syslinux dd: "
 
     loginfo "Copying filesystem from docker image to disk image"
     docker_container=$(
@@ -529,116 +318,18 @@ optional_executables=(
     "udevadm"
 )
 
-# Check that all dependencies are in path and executable
-missing_executables=()
-for executable in "${required_executables[@]}"; do
-    # shellcheck disable=SC2310
-    if ! runcmd["${executable}"]="$(find_command "${executable}")"; then
-        missing_executables+=("${executable}")
-    fi
-done
-missing_opt_executables=()
-for executable in "${optional_executables[@]}"; do
-    # shellcheck disable=SC2310
-    if ! runcmd["${executable}"]="$(find_command "${executable}")"; then
-        missing_opt_executables+=("${executable}")
-    fi
-done
-if (("${#missing_executables[@]}")); then
-    missing_string="$(printf ", \"%s\"" "${missing_executables[@]}")"
-    logerror "Required executable(s) ${missing_string:2} not in path, exiting"
-    usage
-    exit 1
-fi
-if (("${#missing_opt_executables[@]}")); then
-    missing_string="$(printf ", \"%s\"" "${missing_opt_executables[@]}")"
-    logerror "Optional executable(s) ${missing_string:2} not in path, exiting"
-    usage
-    exit 1
-fi
+init_req_commands "${path_real}" "${required_executables[@]}"
+# init_opt_commands "${path_real}" "${optional_executables[@]}"
 
-# Check if system getopt is GNU enhanced version
-if ${runcmd[getopt]} --test >/dev/null; then
-    logerror "\"getopt --test\" failed, this script requires GNU enhanced getopt"
-    logerror "Cannot parse args, exiting"
-    exit 1
-fi
+source "${script_path}/src/cmdline.bash"
 
-# Set getopt command-line options
-OPTIONS=hH:ms:y
-LONGOPTS=help,debug,hostname:,mbr-path:,size:,assume-yes
+# # Check that mbr.bin file exists
+# if ! [[ -f "${mbr_path}" ]]; then
+#     logerror "mbr.bin file could not be found at ${mbr_path} (is --mbr-path set properly?), exiting"
+#     exit 1
+# fi
 
-# Parse arguments with getopt
-PARSED=$(
-    ${runcmd[getopt]} --options="${OPTIONS}" \
-		      --longoptions="${LONGOPTS}" \
-		      --name "${0}" \
-		      -- \
-		      "${@}"
-)
-
-# Set positional arguments to getopt output
-eval set -- "${PARSED}"
-
-# Set variable defaults
-system_hostname="whale"
-image_file_size="5G"
-mbr_path="/usr/lib/syslinux/mbr/mbr.bin"
-
-# Handle named arguments
-while true; do
-    case "${1}" in
-        -h | --help)
-            usage
-            exit 1
-            ;;
-        --debug)
-            debug=y
-            shift
-            ;;
-        -H | --hostname)
-            system_hostname="${2}"
-            shift 2
-            ;;
-        -m | --mbr-path)
-            mbr_path="${2}"
-            shift 2
-            ;;
-        -s | --size)
-            image_file_size="${2}"
-            shift 2
-            ;;
-        -y | --assume-yes)
-            assume_yes="y"
-            shift
-            ;;
-        --)
-            shift
-            break
-            ;;
-        *)
-            logerror "Case statement doesn't match getopt for arg: ${1}, exiting"
-            exit 1
-            ;;
-    esac
-done
-
-# Handle positional arguments
-if [[ ${#} -ne 2 ]]; then
-    logerror "${0}: exactly 2 positional arguments required, ${#} provided"
-    usage
-    exit 1
-fi
-image_name=${1}
-file_name=${2}
-
-# Check that mbr.bin file exists
-if ! [[ -f "${mbr_path}" ]]; then
-    logerror "mbr.bin file could not be found at ${mbr_path} (is --mbr-path set properly?), exiting"
-    exit 1
-fi
-
-# Check if script is running as rootj
+# Check if script is running as root
 effective_uid="$(${runcmd[id]} -u)"
 if [[ "${effective_uid}" != 0 ]]; then
     logerror "${0}: must run as root"

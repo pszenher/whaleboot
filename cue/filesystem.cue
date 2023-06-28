@@ -1,19 +1,49 @@
 package whaleboot
 
-#Filesystem: #Fatfs | #Ext4fs
+#Filesystem: #Fatfs | #Ext4fs | #Ext2fs
 
-#Fatfs: #FsBase & {
+#Fatfs: self={
+    #FsBase & {
 	"type": "fat"
-	"fat-size": 12 | 16 | *32
-	"fat-label": string & =~ #"[A-Z]{1,11}"# | *null // TODO: allow other valid label chars (lowercase, whitespace, etc.)
+	"fat_size": 12 | 16 | *32
+	// TODO: allow other valid label chars (lowercase, whitespace, etc.)
+	"label": string & (=~ #"[A-Z]{1,11}"# | *"") 
+
+	"command": "mkfs.fat"
+	"arguments": [
+	    "-F\(self.fat_size)",
+	    "-L\(self.label)",
+	]
+    }
 }
 
-#Ext4fs: #FsBase & {
+#Ext4fs: self={
+    #FsBase & {
 	"type": "ext4"
-	"ext4-label": string | *null
+	"label": string | *""
+
+	"command": "mkfs.ext4"
+	"arguments": [
+	    "-L\(self.label)"
+	]
+    }
+}
+
+#Ext2fs: self={
+    #FsBase & {
+	"type": "ext2"
+	"label": string | *""
+
+	"command": "mkfs.ext2"
+	"arguments": [
+	    "-L\(self.label)"
+	]
+    }
 }
 
 #FsBase: {
-	partlabel: string
-	...
+    partlabel: string
+    command: string
+    arguments: [...string]
+    ...
 }

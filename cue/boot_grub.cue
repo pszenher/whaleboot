@@ -1,5 +1,10 @@
 package whaleboot
 
+#GrubBootloader: #BootloaderBase & {
+    program: "grub"
+    config: #GrubConfig
+}
+
 #GrubConfig: {
 	set: [...string]
 	menuentries: [...#GrubMenuentry]

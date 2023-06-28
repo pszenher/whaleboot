@@ -1,0 +1,89 @@
+%YAML 1.1
+# Whaleboot manifest file
+# see https://github.com/pszenher/whaleboot
+---
+system:
+  manifest:  False
+  dockerenv: False
+  files:
+    etc:
+      hostname: "jackal"
+      # hosts: |
+      #   127.0.0.1	localhost
+      #   127.0.1.1	${hostname}
+      # hosts:
+      #   - "127.0.0.1	localhost"
+      #   - "127.0.1.1	${hostname}"
+      hosts:
+        type: "file"
+        path: "/tmp/hosts.whaleboot"
+      resolv.conf:
+        type: "symlink"
+        path: "/run/systemd/resolve/stub-resolv.conf"
+  # bootloader:
+  #   type: "bios"
+  #   prog: "extlinux"
+  #   mbr: "/usr/lib/syslinux/mbr/mbr.bin"
+  bootloader:
+    program: "grub"
+    mode: "efi"
+    efi-partition:
+      name: "efiroot"
+    root-partition:
+      name: "rootfs"
+    efi-srcpath: "/usr/lib/grub/x86_64-efi/monolithic/grubx64.efi"
+    efi-installpath: "/EFI/BOOT/BOOTX64.EFI"
+    config:
+      set:
+        - "default=0"
+        - "timeout=0"
+      menuentries:
+          - title: "WhaleBoot"
+            commands:
+              - name: "search"
+                args:
+                  - "--no-floppy"
+                  - "--set=root"
+                  - "--label whaleboot-root"
+              - name: "kernel"
+                args:
+                  - "/boot/vmlinuz"
+                  - "rw console=tty0 console=ttyS0,115200"
+              - name: "initrd"
+                args:
+                  - "/boot/initrd.img"
+disk:
+  partitiontable:
+    # unit: "sectors"
+    label: "gpt"
+    id: "f9a7f215-32e0-4787-a37d-ab5144d6d7eb"
+    # device: null
+    # firstlba: null
+    # lastlba: null
+    # tablelength: null
+    # grain: "1MiB"
+    # sectorsize: null
+    partitions:
+      - start: "-"
+        size: "1MiB"
+        bootable: True
+        attrs: "RequiredPartition"
+        # uuid: null
+        name: "efiroot"
+        type: "uefi"
+      - start: "-"
+        size: "-"
+        bootable: False
+        # attrs: null
+        # uuid: null
+        name: "rootfs"
+        type: "Linux"     # Linux; means 83 for MBR and 0FC63DAF-8483-4772-8E79-3D69D8477DE4 for GPT.
+  filesystems:
+    - partlabel: "efiroot"
+      type: "fat"
+      fat-size: 32
+      label: "EFI"
+    - partlabel: "rootfs"
+      type: "ext4"
+      label: "whaleboot-root"
+version: 0
