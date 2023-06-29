@@ -1,17 +1,13 @@
 package whaleboot
 
 #FirmwareConfig: {
-    "root-partition": {
-	name: string
-    }
+    "root-partition": #PartitionRef
     ...
 }
 
 #EfiConfig: #FirmwareConfig & {
     "mode": *"efi" | "hybrid"
-    "efi-partition": {
-	name: string
-    }
+    "efi-partition": #PartitionRef
     "efi-srcpath": #UnixPath
     "efi-installpath": #UnixPath
     ...
@@ -26,4 +22,9 @@ package whaleboot
 #HybridConfig: #EfiConfig & #BiosConfig & {
     "mode": "hybrid"
     ...
+}
+
+#PartitionRef: {
+	name?: string | *null
+	label?: string | *null
 }

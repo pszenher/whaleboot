@@ -5,12 +5,11 @@ package whaleboot
 #LineList: [...string & !~ #"\n"#] & #OneOrMore
 
 #FileSpec: self={
-    type: "file" | "symlink" | "directory"
-    path: #UnixPath
+	action: "copy" | "symlink"
+    from: #UnixPath
     _command: {
-    	if self.type == "file"      { "cp \(path)" }
-	if self.type == "symlink"   { "ln -s \(path)" }
-	if self.type == "directory" { "cp -r \(path)" }
+    	if self.action == "copy"      { "cp \(from)" }
+		if self.action == "symlink"   { "ln -s \(from)" }
     }
 }
 
