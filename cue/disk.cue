@@ -6,18 +6,44 @@ import "strings"
 #Disk: {
     partitiontable: #PartitionTable
     filesystems: [...#Filesystem] & [_, ...]
-	_scripts: {
-		sfdisk:  strings.Join(
-			[ "sfdisk -q < cat <<EOF", partitiontable.sfdisk_fmt, "EOF"],
-			"\n")
-		mkfs: [ for fs in filesystems {
-			strings.Join(
-				[ fs.command ] + fs.arguments + [ "/dev/by-partlabel/\(fs.partlabel)" ],
-				" ")
-		} ],
-	}
+    _scripts: {
+	disk_partition: [
+	    (#PipeStrToProg & { prog: "sfdisk",
+				args: [ "-q" ],
+				content: partitiontable.sfdisk_fmt
+			      })._script & { id: "disk_partition_sfdisk"
+					     priority: 10 }
+			],
+	disk_format: [ for f in filesystems { f._string }]
+    }
+	    // strings.Join(
+	    // 	[ "sfdisk -q < cat <<EOF", partitiontable.sfdisk_fmt, "EOF"],
+	    // 	"\n")
+	    // [ for fs in filesystems {
+	    // 	strings.Join(
+	    // 	    [ fs.command ] + fs.arguments + [ "/dev/by-partlabel/\(fs.partlabel)" ],
+	    // 	    " ")
+	    // } ],
 }
 
+#PipeStrToProg: self={
+    prog: string
+    args: [...string]
+    content: string
+    let argstr = strings.Join(args, " ")
+    _script: {
+	id: string
+	priority: number
+	content: strings.Join( [ "cat <<EOF | \(prog) \(argstr)", self.content, "EOF" ], "\n" )
+    }
+}
+
+#RunProg: {
+    prog: string
+    args: [...string]
+    let argstr = strings.Join(args, " ")
+    _script: "\(prog) \(argstr)"
+}    
 
 #PartitionTable: self={
     unit?: "sectors"
@@ -30,28 +56,31 @@ import "strings"
 
     // Transformation Fields
     sfdisk_fmt: strings.Join(
-		[
-			for key, val in self
-      				 if ( key != "partitions" && key != "sfdisk_fmt" ) {
-						 if ( key == "firstlba" ) {
-							 "first-lba: \(val)"
-						 }
-						 if ( key == "lastlba" ) {
-							 "last-lba: \(val)"
-						 }
-						 if ( key == "id" ) {
-							 "label-id: \(val)"
-						 }
-						 // FIXME:  there has to be a better way to make an else clause...
-						 if ( key != "firstlba" && key != "lastlba" && key != "id" ) {
-							 "\(key): \(val)"
-						 }
-					 }
+	[
+	    for key, val in self
+      	    if ( key != "partitions" && key != "sfdisk_fmt" ) {
+		if ( key == "firstlba" ) {
+		    "first-lba: \(val)"
+		}
+		if ( key == "lastlba" ) {
+		    "last-lba: \(val)"
+		}
+		if ( key == "id" ) {
+		    "label-id: \(val)"
+		}
+		if ( key == "bootable" ) {
+		    if ( val == true  ) { "bootable" }
+		}
+		// FIXME:  there has to be a better way to make an else clause...
+		if ( key != "firstlba" && key != "lastlba" && key != "id" && key != "bootable" ) {
+		    "\(key): \(val)"
+		}
+	    }
 	] + [
-			for p in partitions { p.sfdisk_fmt }
+	    for p in partitions { p.sfdisk_fmt }
 	],
-		"\n"
-				   )
+	"\n"
+    )
     
     // Validation Fields
     _#unique_partlabel: true & list.UniqueItems(

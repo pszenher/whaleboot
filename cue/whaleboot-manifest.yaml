@@ -71,10 +71,10 @@ bootloader:
                 - "/boot/initrd.img"
 files:
   docker:
-    - label: "EFI"
-      mountpoint: "/boot"
-      exclude:
-        - "[^/boot]"      
+    # - label: "EFI"
+    #   mountpoint: "/boot"
+    #   exclude:
+    #     - "[!/boot]"      
     - label: "whaleboot-root"
       mountpoint: "/"
       exclude:
@@ -95,7 +95,7 @@ files:
     - path: "/etc/hosts"
       content: |
         127.0.0.1	localhost
-        127.0.1.1	$(cat /etc/hostname)
+        127.0.1.1	jackal
     # - path: "/etc/hosts"
     #   content:
     #     - "127.0.0.1	localhost"
