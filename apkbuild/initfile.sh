@@ -66,11 +66,12 @@ done
 
 # Configure alternative logging point which strips newlines (for
 # pipe_progress formatting)
-mkfifo /tmp/ttyS1_no_newline
-cat /tmp/ttyS1_no_newline | tr -d '\n' >> "$serial_log_dev" &
+mkfifo "/tmp/ttyS1_no_newline"
+cat "/tmp/ttyS1_no_newline" | tr -d '\n' >> "$serial_log_dev" &
 
 echo -n "Mounting /dev/vdc1 on /whaleboot ..." >> "$serial_log_dev"
-mkdir -p "/whaleboot/{scripts,mounts}"
+mkdir -p /whaleboot/mounts
+mkdir -p /whaleboot/scripts
 mount -t vfat /dev/vdc1 /whaleboot/scripts 2>> "$serial_log_dev"
 echo " [SUCCESS]" >> "$serial_log_dev"
 
@@ -83,15 +84,15 @@ ln -s /dev/vdb /docker-rootfs.tar
 echo " [SUCCESS]" >> "$serial_log_dev"
 
 echo -n "Populating persistent device names with mdev..." >> "$serial_log_dev"
-mdev -sv &>2 2>> "$serial_log_dev"
-ls -la /dev/disk/by-*/ >> "$serial_log_dev"
-blkid /dev/vda1 >> "$serial_log_dev"
+mdev -s 2>> "$serial_log_dev"
+# ls -la /dev/disk/by-*/ >> "$serial_log_dev"
+# blkid /dev/vda1 >> "$serial_log_dev"
 echo " [SUCCESS]" >> "$serial_log_dev"
 
-/whaleboot/scripts/script.sh >&2 2>> "$serial_log_dev"
+echo "/dev/vda sample:" >> "$serial_log_dev"
+echo "$(hexdump -c /dev/vda | head -n5)" >> "$serial_log_dev"
 
-# echo "/dev/vda sample:" >> "$serial_log_dev"
-# echo "$(hexdump -c /dev/vda | head -n5)" >> "$serial_log_dev"
+/whaleboot/scripts/script.sh >&2 2>> "$serial_log_dev"
 
 echo -n "Partitioning /dev/vda with fdisk ..." >> "$serial_log_dev"
 echo "label: dos" | sfdisk --wipe always /dev/vda 2>> "$serial_log_dev"

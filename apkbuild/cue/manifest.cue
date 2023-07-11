@@ -16,11 +16,16 @@ import "strings"
 	{x: {}, y: {}, less: x.priority < y.priority}
     )
 
-    script: strings.Join( [
-	"#!/bin/sh",
-	"set -e" ] + [ for index, command in commands {
-	    "echo 'Step [\(index + 1) / \(len(commands))]:  \(command.id)' >&2" + "\n" + command.content
-	} ], "\n\n")
+    script: strings.Join(
+		[
+			"#!/bin/sh",
+			"set -e"
+	] + [
+			for index, command in commands {
+				"echo 'Step [\(index + 1) / \(len(commands))]:  \(command.id)' >&2\n" + command.content
+			}
+	],
+		"\n\n")
 	
     // FIXME:  refactor to use "label" key
     // // Validation Fields

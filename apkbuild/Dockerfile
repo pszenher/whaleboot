@@ -39,7 +39,7 @@ RUN mkinitfs \
     -P /tmp/features.d \
     -C gzip \
     -o /initfs.test.img \
-    6.1.36-0-virt
+    6.1.38-0-virt
 
 RUN chmod 444 "/initfs.test.img"
 

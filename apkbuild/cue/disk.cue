@@ -6,17 +6,35 @@ import "strings"
 #Disk: {
     partitiontable: #PartitionTable
     filesystems: [...#Filesystem] & [_, ...]
-    _scripts: {
-	disk_partition: [
-	    (#PipeStrToProg & { prog: "sfdisk",
+    _scripts: [...#BuildTask] & [
+		
+		disk_partition: [
+			(#PipeStrToProg & { prog: "sfdisk",
 				args: [ // "-q",
 					"/dev/target-disk" ],
 				content: partitiontable._sfdisk_fmt
-			      })._script & { id: "disk_partition_sfdisk"
-					     priority: 10 }
-			],
-	disk_format: [ for f in filesystems { f._string }]
+			})._script &
+			{ id: "disk_partition_sfdisk", priority: 10 }
+	],
+		disk_format: [ for f in filesystems { f._toTask }]
     }
+}
+
+#BuildTask: {
+	id: string
+	priority: int & >=10 & <=99
+	content: string
+}
+
+#UnixPipeList: {
+	commands: [...#UnixCommand]
+	_toString: strings.Join( commands, " | " )
+}
+
+#UnixHeredoc: {
+	command: #UnixCommand
+	content: string
+	_toCommand: strings.Join( [ "\(command._toString) <<EOF", content, "EOF" ], "\n" )
 }
 
 #PipeStrToProg: self={
@@ -70,7 +88,26 @@ import "strings"
 	    for p in partitions { p._sfdisk_fmt }
 	],
 	"\n"
-    )
+					)
+
+	_toTask: #BuildTask & {
+		id: "disk_partition_sfdisk"
+		priority: 10
+		content: self._sfdisk_fmt
+	}
+
+	let command = {
+		content: _sfdisk_fmt
+	}
+	
+	_toCommands: #UnixHeredoc & command
+
+	// (#PipeStrToProg & { prog: "sfdisk",
+	// 			args: [ // "-q",
+	// 				"/dev/target-disk" ],
+	// 			content: partitiontable._sfdisk_fmt
+	// 		})._script &
+	// 		{ id: "disk_partition_sfdisk", priority: 10 }
     
     // Validation Fields
     _#unique_partlabel: true & list.UniqueItems(

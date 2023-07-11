@@ -24,7 +24,7 @@ import "strings"
     #FsBase & {
 	"type": "ext4"
 	"label": string | *""
-	mkfs_command: "mkfs.ext4"
+	mkfs_command: "yes | mkfs.ext4"
 	"arguments": [
 	    // FIXME: why does this not yield status output even when -q is disabled?
 	    // "-q",
@@ -52,36 +52,21 @@ import "strings"
 #FsBase: self={
     partlabel: string
     mkfs: #UnixCommand & {
-	command: "\(mkfs_command)"
-	args: [ "/dev/disk/by-partlabel/\(self.partlabel)" ] }
-    command_list: #PosixSimpleList & [ "mkdir", "&&", "test" ]
+		command: "\(mkfs_command)"
+		args: [ "/dev/disk/by-partlabel/\(self.partlabel)" ]
+	}
     mkfs_command: string
     arguments: [...string]
     target: "/dev/disk/by-partlabel/\(self.partlabel)"
     
     _toCommands: [ mkfs._toString ]
-    // _script: #RunProg & {
-    // 	prog: self.mkfs_command
-    // 	args: self.arguments + [ self.target ]
-    // }
-    _string: {
-	id: "make_filesystem_\(partlabel)"
-	testval: command_list
-	priority: 20
-	content: _toCommands
+    _toTask: {
+		id: "make_filesystem_\(partlabel)"
+		priority: 20
+		content: strings.Join(_toCommands, "\n")
     }
     ...
 }
-
-#List: *null | {
-    elem: _
-    tail: #List
-}
-
-// #PosixList: {
-//     tokens: [...( #PosixAndOrList._str | ";" | "&" )] & [_, ...]
-//     _string: strings.Join( tokens, " " )
-// }
 
 #UnixCommand: {
     command: #UnixPath
@@ -90,5 +75,3 @@ import "strings"
     let argstr = strings.Join(args, " ")
     _toString: "\(command) \(argstr)"
 }
-
-#ShellCommands: [...#UnixCommand]
