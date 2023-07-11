@@ -28,7 +28,7 @@ disk:
         # attrs: null
         # uuid: null
         name: "rootfs"
-        type: "Linux"     # Linux; means 83 for MBR and 0FC63DAF-8483-4772-8E79-3D69D8477DE4 for GPT.
+        type: "linux"     # linux; means 83 for MBR and 0FC63DAF-8483-4772-8E79-3D69D8477DE4 for GPT.
   filesystems:
     - partlabel: "efiroot"
       type: "fat"
@@ -83,8 +83,8 @@ files:
         - "sys"
         
   keep:
-    manifest:  False
-    dockerenv: False
+    manifest:  True
+    dockerenv: True
     
   overrides:
     - path: "/etc/hostname"

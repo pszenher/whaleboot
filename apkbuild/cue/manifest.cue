@@ -53,7 +53,9 @@ import "strings"
 	id: "docker_export_\(label)"
 	priority: 50
 	content: strings.Join(
-	    [ "tar x -C \(mountpoint) -f -" ]  +
+	    // FIXME: pipe_progress redirection file should be
+	    // standardized (or reroute stdout another way... subshell?)
+	    [ "cat /docker-rootfs.tar | pipe_progress 2>> /tmp/ttyS1_no_newline | tar x -C \(mountpoint) -f -" ]  +
 		[ for e in exclude { "--exclude=\(e)" } ],
 	    " ")
     }

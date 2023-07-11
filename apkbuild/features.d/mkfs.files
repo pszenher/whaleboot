@@ -1,0 +1,4 @@
+/sbin/mkfs.fat
+/sbin/mkfs.ext2
+/sbin/mkfs.ext3
+/sbin/mkfs.ext4

@@ -1,0 +1,5 @@
+kernel/fs/fat
+kernel/fs/nls
+kernel/fs/ext4
+kernel/arch/*/crypto/crc32*
+kernel/crypto/crc32*

@@ -9,21 +9,14 @@ import "strings"
     _scripts: {
 	disk_partition: [
 	    (#PipeStrToProg & { prog: "sfdisk",
-				args: [ "-q" ],
-				content: partitiontable.sfdisk_fmt
+				args: [ // "-q",
+					"/dev/target-disk" ],
+				content: partitiontable._sfdisk_fmt
 			      })._script & { id: "disk_partition_sfdisk"
 					     priority: 10 }
 			],
 	disk_format: [ for f in filesystems { f._string }]
     }
-	    // strings.Join(
-	    // 	[ "sfdisk -q < cat <<EOF", partitiontable.sfdisk_fmt, "EOF"],
-	    // 	"\n")
-	    // [ for fs in filesystems {
-	    // 	strings.Join(
-	    // 	    [ fs.command ] + fs.arguments + [ "/dev/by-partlabel/\(fs.partlabel)" ],
-	    // 	    " ")
-	    // } ],
 }
 
 #PipeStrToProg: self={
@@ -55,10 +48,10 @@ import "strings"
     partitions: [...#Partition] & [_, ...]
 
     // Transformation Fields
-    sfdisk_fmt: strings.Join(
+    _sfdisk_fmt: strings.Join(
 	[
 	    for key, val in self
-      	    if ( key != "partitions" && key != "sfdisk_fmt" ) {
+      	    if ( key != "partitions" ) {
 		if ( key == "firstlba" ) {
 		    "first-lba: \(val)"
 		}
@@ -68,16 +61,13 @@ import "strings"
 		if ( key == "id" ) {
 		    "label-id: \(val)"
 		}
-		if ( key == "bootable" ) {
-		    if ( val == true  ) { "bootable" }
-		}
 		// FIXME:  there has to be a better way to make an else clause...
-		if ( key != "firstlba" && key != "lastlba" && key != "id" && key != "bootable" ) {
+		if ( key != "firstlba" && key != "lastlba" && key != "id" ) {
 		    "\(key): \(val)"
 		}
 	    }
 	] + [
-	    for p in partitions { p.sfdisk_fmt }
+	    for p in partitions { p._sfdisk_fmt }
 	],
 	"\n"
     )
@@ -97,14 +87,14 @@ import "strings"
     name: string				// TODO: valid partlabel strings
     type: string				// TODO: valid part. types
 
-    sfdisk_fmt: strings.Join(
-		[
-			for key, val in self
-					 if (key != "sfdisk_fmt")
-					 {
-						 "\(key)=\(val)"
-					 }
+    _sfdisk_fmt: strings.Join(
+	[
+	    for key, val in self
+	    if (key != "bootable" || (val & false) == _|_ ) {
+		if (key == "bootable") { "bootable" }
+		if (key != "bootable") { "\(key)=\(val)" }
+	    }
 	],
-		", "
-				   )
+	", "
+    )
 }

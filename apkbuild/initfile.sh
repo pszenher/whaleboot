@@ -2,13 +2,16 @@
 
 set -e
 
-function catch_exit() {
+serial_log_dev="/dev/hvc0"
+
+catch_exit() {
     retval="$?"
     if [ "$retval" -eq "0" ] ; then
-	echo "Task completed successfully" >> /dev/ttyS1
+	echo "Task completed successfully" >> "$serial_log_dev"
     else
-	echo "Unexpected failure in virtual machine" >> /dev/ttyS1
+	echo "Unexpected failure in virtual machine" >> "$serial_log_dev"
     fi
+    # Need -f to force because we are init...
     busybox poweroff -f
 }
 
@@ -55,36 +58,57 @@ mount -t tmpfs -o nodev,nosuid,noexec shm /dev/shm
 
 # Load relevant modules
 # crc32c_generic
-for mod in loop ext4 sd_mod virtio_blk virtio_scsi ; do
-    echo -n "Loading module $mod ..." >> /dev/ttyS1
-    modprobe $mod 2>> /dev/ttyS1
-    echo " [DONE]" >> /dev/ttyS1
+for mod in loop vfat ext4 sd_mod virtio_blk virtio_scsi virtio_console ; do
+    echo -n "Loading module $mod ..." >> "$serial_log_dev"
+    modprobe $mod 2>> "$serial_log_dev"
+    echo " [DONE]" >> "$serial_log_dev"
 done
 
 # Configure alternative logging point which strips newlines (for
 # pipe_progress formatting)
 mkfifo /tmp/ttyS1_no_newline
-cat /tmp/ttyS1_no_newline | tr -d '\n' >> /dev/ttyS1 &
+cat /tmp/ttyS1_no_newline | tr -d '\n' >> "$serial_log_dev" &
 
-# # NOTE: Wait for filesystem 'sync' to clear before mounting, otherwise
-# #       non-kvm sd_mod init isn't ready in time, breaking the mount
-# #       call...
-# echo -n "Waiting for filesystem sync ..." >> /dev/ttyS1
-# fsck /dev/sda
-# echo " [SUCCESS]" >> /dev/ttyS1
+echo -n "Mounting /dev/vdc1 on /whaleboot ..." >> "$serial_log_dev"
+mkdir -p "/whaleboot/{scripts,mounts}"
+mount -t vfat /dev/vdc1 /whaleboot/scripts 2>> "$serial_log_dev"
+echo " [SUCCESS]" >> "$serial_log_dev"
 
-ls -la /dev >> /dev/ttyS1
+echo -n "Symlinking target device /dev/vda to /dev/target-disk..." >> "$serial_log_dev"
+ln -s /dev/vda /dev/target-disk
+echo " [SUCCESS]" >> "$serial_log_dev"
 
-echo "/dev/vda sample:" >> /dev/ttyS1
-echo "$(hexdump -c /dev/vda | head -n5)" >> /dev/ttyS1
+echo -n "Symlinking docker rootfs tar archive /dev/vdb to /docker-rootfs.tar..." >> "$serial_log_dev"
+ln -s /dev/vdb /docker-rootfs.tar
+echo " [SUCCESS]" >> "$serial_log_dev"
 
-echo -n "Mounting /dev/vda on /mnt ..." >> /dev/ttyS1
-mount -t ext4 /dev/vda /mnt 2>> /dev/ttyS1
-echo " [SUCCESS]" >> /dev/ttyS1
+echo -n "Populating persistent device names with mdev..." >> "$serial_log_dev"
+mdev -sv &>2 2>> "$serial_log_dev"
+ls -la /dev/disk/by-*/ >> "$serial_log_dev"
+blkid /dev/vda1 >> "$serial_log_dev"
+echo " [SUCCESS]" >> "$serial_log_dev"
 
-echo -n "Unpacking tarred stdin to /mnt ..." >> /dev/ttyS1
-cat /dev/vdb | pipe_progress 2>> /tmp/ttyS1_no_newline | tar x -C /mnt -f- 2>> /dev/ttyS1
-echo " [SUCCESS]" >> /dev/ttyS1
+/whaleboot/scripts/script.sh >&2 2>> "$serial_log_dev"
+
+# echo "/dev/vda sample:" >> "$serial_log_dev"
+# echo "$(hexdump -c /dev/vda | head -n5)" >> "$serial_log_dev"
+
+echo -n "Partitioning /dev/vda with fdisk ..." >> "$serial_log_dev"
+echo "label: dos" | sfdisk --wipe always /dev/vda 2>> "$serial_log_dev"
+echo "start=2048, type=83, bootable" | sfdisk -q /dev/vda 2>> "$serial_log_dev"
+echo " [SUCCESS]" >> "$serial_log_dev"
+
+echo -n "Formatting /dev/vda1 to ext4 ..." >> "$serial_log_dev"
+yes | mkfs.ext4 -q /dev/vda1 2>> "$serial_log_dev"
+echo " [SUCCESS]" >> "$serial_log_dev"
+
+echo -n "Mounting /dev/vda1 on /mnt ..." >> "$serial_log_dev"
+mount -t ext4 /dev/vda1 /mnt 2>> "$serial_log_dev"
+echo " [SUCCESS]" >> "$serial_log_dev"
+
+echo -n "Unpacking tarred stdin to /mnt ..." >> "$serial_log_dev"
+cat /dev/vdb | pipe_progress 2>> /tmp/ttyS1_no_newline | tar x -C /mnt -f- 2>> "$serial_log_dev"
+echo " [SUCCESS]" >> "$serial_log_dev"
 
 # echo "running emergency shell..."
 # sh

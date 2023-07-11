@@ -13,26 +13,40 @@ else
     kvm_if_avail=""
 fi
 
+# mkfifo /tmp/qemu_console_out
+# mkfifo /tmp/qemu_script_out
+
+# cat /tmp/qemu_console_out | sed 's/^/[QEMU CONSOLE]:  /' >> /dev/stderr &
+# cat /tmp/qemu_script_out  | sed 's/^/[QEMU SCRIPT ]:  /' >> /dev/stderr &
+
 echo "Starting virtual machine..." >&2
-qemu-system-x86_64 \
+time qemu-system-x86_64 \
+    \
+    -runas nobody \
     -nodefaults \
     -nographic \
-    -runas nobody \
+    \
     -name "WhalebootVirtBuilder" \
     -machine "q35$kvm_if_avail" \
-    -kernel "/boot/vmlinuz-virt" \
-    -initrd "/initfs.test.img" \
-    -smp "8" \
+    -smp "$(nproc)" \
     -m "4G" \
+    \
     -drive "file=/bindmount.img,format=raw,id=vd0,if=virtio,index=0" \
     -drive "file=/tmp/rootfs.tar,format=raw,id=vd1,if=virtio,index=1" \
-    -append "console=ttyS0" \
+    -drive "file=fat:rw:/whaleboot,format=raw,id=vd2,if=virtio,index=2" \
     \
-    -chardev "null,id=hide-boot0" \
-    -device "isa-serial,chardev=hide-boot0,index=0" \
+    -chardev "null,id=bootlog" \
+    -chardev "stdio,id=initlog,mux=on,signal=off" \
     \
-    -chardev "stdio,id=show-output0,signal=off" \
-    -device "isa-serial,chardev=show-output0,index=1"
+    -device "virtio-serial,id=ser0,max_ports=2" \
+    -device "virtconsole,bus=ser0.0,chardev=initlog,id=port0,nr=0" \
+    -device "isa-serial,chardev=bootlog,index=1" \
+    \
+    -kernel "/boot/vmlinuz-virt" \
+    -initrd "/initfs.test.img" \
+    -append "console=ttyS1"
+
+
 
 # -enable-kvm \
     # -serial mon:stdio \
