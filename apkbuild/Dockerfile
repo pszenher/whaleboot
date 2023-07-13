@@ -12,7 +12,13 @@ RUN apk add --no-scripts \
     dosfstools \
     \
     # Use full util-linux blkid to have mdev detect partuuid and partlabel
-    blkid
+    blkid \
+    \
+    # Boot system buildutils for Initramfs
+    grub \
+    grub-bios \
+    grub-efi \
+    syslinux
 
 # cue-lang command-line tool (from alpine/edge:testing)
 # TODO: should probably use a more reliable source here...
@@ -39,7 +45,7 @@ RUN mkinitfs \
     -P /tmp/features.d \
     -C gzip \
     -o /initfs.test.img \
-    6.1.38-0-virt
+    "$(ls /lib/modules | grep -wE '[0-9]+.[0-9]+.[0-9]+-[0-9]+-virt')"
 
 RUN chmod 444 "/initfs.test.img"
 

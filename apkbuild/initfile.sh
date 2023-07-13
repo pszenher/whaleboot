@@ -85,7 +85,7 @@ echo " [SUCCESS]" >> "$serial_log_dev"
 
 echo -n "Populating persistent device names with mdev..." >> "$serial_log_dev"
 mdev -s 2>> "$serial_log_dev"
-# ls -la /dev/disk/by-*/ >> "$serial_log_dev"
+ls -la /dev/disk/by-*/ >> "$serial_log_dev"
 # blkid /dev/vda1 >> "$serial_log_dev"
 echo " [SUCCESS]" >> "$serial_log_dev"
 
@@ -94,22 +94,22 @@ echo "$(hexdump -c /dev/vda | head -n5)" >> "$serial_log_dev"
 
 /whaleboot/scripts/script.sh >&2 2>> "$serial_log_dev"
 
-echo -n "Partitioning /dev/vda with fdisk ..." >> "$serial_log_dev"
-echo "label: dos" | sfdisk --wipe always /dev/vda 2>> "$serial_log_dev"
-echo "start=2048, type=83, bootable" | sfdisk -q /dev/vda 2>> "$serial_log_dev"
-echo " [SUCCESS]" >> "$serial_log_dev"
+# echo -n "Partitioning /dev/vda with fdisk ..." >> "$serial_log_dev"
+# echo "label: dos" | sfdisk --wipe always /dev/vda 2>> "$serial_log_dev"
+# echo "start=2048, type=83, bootable" | sfdisk -q /dev/vda 2>> "$serial_log_dev"
+# echo " [SUCCESS]" >> "$serial_log_dev"
 
-echo -n "Formatting /dev/vda1 to ext4 ..." >> "$serial_log_dev"
-yes | mkfs.ext4 -q /dev/vda1 2>> "$serial_log_dev"
-echo " [SUCCESS]" >> "$serial_log_dev"
+# echo -n "Formatting /dev/vda1 to ext4 ..." >> "$serial_log_dev"
+# yes | mkfs.ext4 -q /dev/vda1 2>> "$serial_log_dev"
+# echo " [SUCCESS]" >> "$serial_log_dev"
 
-echo -n "Mounting /dev/vda1 on /mnt ..." >> "$serial_log_dev"
-mount -t ext4 /dev/vda1 /mnt 2>> "$serial_log_dev"
-echo " [SUCCESS]" >> "$serial_log_dev"
+# echo -n "Mounting /dev/vda1 on /mnt ..." >> "$serial_log_dev"
+# mount -t ext4 /dev/vda1 /mnt 2>> "$serial_log_dev"
+# echo " [SUCCESS]" >> "$serial_log_dev"
 
-echo -n "Unpacking tarred stdin to /mnt ..." >> "$serial_log_dev"
-cat /dev/vdb | pipe_progress 2>> /tmp/ttyS1_no_newline | tar x -C /mnt -f- 2>> "$serial_log_dev"
-echo " [SUCCESS]" >> "$serial_log_dev"
+# echo -n "Unpacking tarred stdin to /mnt ..." >> "$serial_log_dev"
+# cat /dev/vdb | pipe_progress 2>> /tmp/ttyS1_no_newline | tar x -C /mnt -f- 2>> "$serial_log_dev"
+# echo " [SUCCESS]" >> "$serial_log_dev"
 
 # echo "running emergency shell..."
 # sh

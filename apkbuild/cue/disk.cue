@@ -6,67 +6,32 @@ import "strings"
 #Disk: {
     partitiontable: #PartitionTable
     filesystems: [...#Filesystem] & [_, ...]
-    _scripts: [...#BuildTask] & [
-		
-		disk_partition: [
-			(#PipeStrToProg & { prog: "sfdisk",
-				args: [ // "-q",
-					"/dev/target-disk" ],
-				content: partitiontable._sfdisk_fmt
-			})._script &
-			{ id: "disk_partition_sfdisk", priority: 10 }
-	],
-		disk_format: [ for f in filesystems { f._toTask }]
-    }
+    // _toTaskList: partitiontable._toTaskList + [ for f in filesystems { f._toTask }]
 }
 
-#BuildTask: {
-	id: string
-	priority: int & >=10 & <=99
-	content: string
-}
-
-#UnixPipeList: {
-	commands: [...#UnixCommand]
-	_toString: strings.Join( commands, " | " )
-}
-
-#UnixHeredoc: {
-	command: #UnixCommand
-	content: string
-	_toCommand: strings.Join( [ "\(command._toString) <<EOF", content, "EOF" ], "\n" )
-}
-
-#PipeStrToProg: self={
-    prog: string
-    args: [...string]
-    content: string
-    let argstr = strings.Join(args, " ")
-    _script: {
-	id: string
-	priority: number
-	content: strings.Join( [ "cat <<EOF | \(prog) \(argstr)", self.content, "EOF" ], "\n" )
-    }
-}
-
-#RunProg: {
-    prog: string
-    args: [...string]
-    let argstr = strings.Join(args, " ")
-    _script: "\(prog) \(argstr)"
-}    
-
-#PartitionTable: self={
+#PartitionTable: self=( {
     unit?: "sectors"
     label: "dos" | "gpt" | "hybrid"
     id?: #uuid
     device?: #UnixPath
-	firstlba?: int
-	lastlba?: int
+    firstlba?: int
+    lastlba?: int
     partitions: [...#Partition] & [_, ...]
 
-    // Transformation Fields
-    _sfdisk_fmt: strings.Join(
+    // Internal Fields
+    _tasks: [ #BuildTask & {
+	id: "disk_partition_sfdisk"
+	priority: 10
+	content: sfdisk_heredoc._toString
+    } ]
+
+    // Validation Fields
+    _#unique_partition_labels: list.UniqueItems(
+	[ for disk_part in partitions { disk_part.name } ]
+    ) & true
+
+    // Intermediate bindings
+    let sfdisk_string = strings.Join(
 	[
 	    for key, val in self
       	    if ( key != "partitions" ) {
@@ -85,35 +50,22 @@ import "strings"
 		}
 	    }
 	] + [
-	    for p in partitions { p._sfdisk_fmt }
+	    for p in partitions { p._toString }
 	],
 	"\n"
-					)
+    )
 
-	_toTask: #BuildTask & {
-		id: "disk_partition_sfdisk"
-		priority: 10
-		content: self._sfdisk_fmt
-	}
-
-	let command = {
-		content: _sfdisk_fmt
-	}
-	
-	_toCommands: #UnixHeredoc & command
-
-	// (#PipeStrToProg & { prog: "sfdisk",
-	// 			args: [ // "-q",
-	// 				"/dev/target-disk" ],
-	// 			content: partitiontable._sfdisk_fmt
-	// 		})._script &
-	// 		{ id: "disk_partition_sfdisk", priority: 10 }
-    
-    // Validation Fields
-    _#unique_partlabel: true & list.UniqueItems(
-		[ for p in partitions { p.name } ]
-							   ) 
-}
+    let sfdisk_heredoc = #UnixHeredoc & {
+	command: {
+	    command: "sfdisk",
+	    args: [
+		// "-q",
+		"/dev/target-disk"
+	    ],
+	},
+	content: sfdisk_string
+    }
+})
 
 #Partition: self={
     start: int | #SuffixedBytes | *"-" | "+"
@@ -124,7 +76,9 @@ import "strings"
     name: string				// TODO: valid partlabel strings
     type: string				// TODO: valid part. types
 
-    _sfdisk_fmt: strings.Join(
+    _toString: string & sfdisk_fmt
+    
+    let sfdisk_fmt = strings.Join(
 	[
 	    for key, val in self
 	    if (key != "bootable" || (val & false) == _|_ ) {

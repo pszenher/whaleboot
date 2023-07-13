@@ -1,0 +1,4 @@
+/usr/sbin/grub-install
+/usr/bin/grub-mkimage
+/usr/lib/grub/i386-pc
+/usr/lib/grub/x86_64-efi

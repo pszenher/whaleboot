@@ -18,10 +18,10 @@ docker_container_name="whaleboot_builder"
 
 # Check if script is running as root
 effective_uid="$(id -u)"
-# if [[ "${effective_uid}" != 0 ]]; then
-#     echo "Not running as root, using sudo for docker commands..." >&2
-#     su_do="sudo"
-# fi
+if [[ "${effective_uid}" != 0 ]]; then
+    echo "Not running as root, using sudo for docker commands..." >&2
+    su_do="sudo"
+fi
 
 if [[ -b "${host_disk_path}" ]] ; then
     echo "Block device targetted, we're not ready for that yet..." >&2

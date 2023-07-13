@@ -28,11 +28,12 @@ disk:
         # attrs: null
         # uuid: null
         name: "rootfs"
+        # name: "efiroot"
         type: "linux"     # linux; means 83 for MBR and 0FC63DAF-8483-4772-8E79-3D69D8477DE4 for GPT.
   filesystems:
     - partlabel: "efiroot"
       type: "fat"
-      fat-size: 32
+      fat_size: 32
       label: "EFI"
     - partlabel: "rootfs"
       type: "ext4"
@@ -92,14 +93,14 @@ files:
       # chown: ""
       # chmod: ""
 
-    - path: "/etc/hosts"
-      content: |
-        127.0.0.1	localhost
-        127.0.1.1	jackal
     # - path: "/etc/hosts"
-    #   content:
-    #     - "127.0.0.1	localhost"
-    #     - "127.0.1.1	$(cat /etc/hostname)"
+    #   content: |
+    #     127.0.0.1	localhost
+    #     127.0.1.1	jackal
+    - path: "/etc/hosts"
+      content:
+        - "127.0.0.1	localhost"
+        - "127.0.1.1	$(cat /etc/hostname)"
     # - path: "/etc/hosts"
     #   content:
     #     action: "copy"
