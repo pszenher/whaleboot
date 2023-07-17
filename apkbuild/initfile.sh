@@ -89,8 +89,8 @@ ls -la /dev/disk/by-*/ >> "$serial_log_dev"
 # blkid /dev/vda1 >> "$serial_log_dev"
 echo " [SUCCESS]" >> "$serial_log_dev"
 
-echo "/dev/vda sample:" >> "$serial_log_dev"
-echo "$(hexdump -c /dev/vda | head -n5)" >> "$serial_log_dev"
+# echo "/dev/vda sample:" >> "$serial_log_dev"
+# echo "$(hexdump -c /dev/vda | head -n5)" >> "$serial_log_dev"
 
 /whaleboot/scripts/script.sh >&2 2>> "$serial_log_dev"
 

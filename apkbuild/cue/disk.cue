@@ -19,11 +19,18 @@ import "strings"
     partitions: [...#Partition] & [_, ...]
 
     // Internal Fields
-    _tasks: [ #BuildTask & {
-	id: "disk_partition_sfdisk"
-	priority: 10
-	content: sfdisk_heredoc._toString
-    } ]
+    _tasks: [
+	{
+	    id: "disk_partition_sfdisk"
+	    priority: 10
+	    content: sfdisk_heredoc._toString
+	},
+	{
+	    id: "disk_refresh_kernel"
+	    priority: 11
+	    content: "mdev -s"
+	}
+    ]
 
     // Validation Fields
     _#unique_partition_labels: list.UniqueItems(
@@ -68,12 +75,12 @@ import "strings"
 })
 
 #Partition: self={
-    start: int | #SuffixedBytes | *"-" | "+"
-    size:  int | #SuffixedBytes | *"-" | "+"
+    start?: int | #SuffixedBytes | "-" | "+"
+    size?:  int | #SuffixedBytes | "-" | "+"
     bootable?: bool
     attrs?: string				// TODO: valid sfdisk attrs
     uuid?: #uuid
-    name: string				// TODO: valid partlabel strings
+    name?: string				// TODO: valid partlabel strings
     type: string				// TODO: valid part. types
 
     _toString: string & sfdisk_fmt
@@ -83,7 +90,7 @@ import "strings"
 	    for key, val in self
 	    if (key != "bootable" || (val & false) == _|_ ) {
 		if (key == "bootable") { "bootable" }
-		if (key != "bootable") { "\(key)=\(val)" }
+		if (key != "bootable") { "\(key)=\"\(val)\"" }
 	    }
 	],
 	", "

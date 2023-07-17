@@ -15,15 +15,19 @@ disk:
     # grain: "1MiB"
     # sectorsize: null
     partitions:
-      - start: "-"
+      - # start: null
         size: "1MiB"
+        bootable: True
+        type: "BIOS boot"
+      - # start: null
+        size: "20MiB"
         bootable: True
         attrs: "RequiredPartition"
         # uuid: null
         name: "efiroot"
         type: "uefi"
-      - start: "-"
-        size: "-"
+      - # start: null
+        # size: null
         bootable: False
         # attrs: null
         # uuid: null
@@ -35,9 +39,11 @@ disk:
       type: "fat"
       fat_size: 32
       label: "EFI"
+      mountpoint: "/boot/efi"
     - partlabel: "rootfs"
       type: "ext4"
       label: "whaleboot-root"
+      mountpoint: "/"
 # bootloader:
 #   type: "bios"
 #   prog: "extlinux"
@@ -77,7 +83,7 @@ files:
     #   exclude:
     #     - "[!/boot]"      
     - label: "whaleboot-root"
-      mountpoint: "/"
+      # mountpoint: "/"
       exclude:
         - "proc"
         - "tmp"
@@ -100,7 +106,7 @@ files:
     - path: "/etc/hosts"
       content:
         - "127.0.0.1	localhost"
-        - "127.0.1.1	$(cat /etc/hostname)"
+        - "127.0.1.1	jackal"
     # - path: "/etc/hosts"
     #   content:
     #     action: "copy"
