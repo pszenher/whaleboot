@@ -11,12 +11,12 @@ import "strings"
 	{
 	    id: "make_grub_dir"
 	    priority: 75,
-	    content: "mkdir -p /boot/grub"
+	    content: "mkdir -p \(chroot_mountpoint)/boot/whaleboot/grub"
 	},
 	{
 	    id: "boot_grub_install",
 	    priority: 85,
-	    content: "grub-install --removable --target=i386-pc  --boot-directory=/whaleboot/chroot/boot --efi-directory=/whaleboot/chroot/boot/efi /dev/target-disk"
+	    content: "grub-install --removable --target=i386-pc --boot-directory=\(chroot_mountpoint)/boot/whaleboot --efi-directory=\(chroot_mountpoint)/boot/whaleboot/efi /dev/target-disk"
 	    // --target=i386-pc
 	    // --target=x86_64-efi
 	}
@@ -35,7 +35,7 @@ import "strings"
 	    priority: 80
 	    content: strings.Join(
 		[
-		    "cat <<EOF > /whaleboot/chroot/boot/grub/grub.cfg",
+		    "cat <<EOF > \(chroot_mountpoint)/boot/whaleboot/grub/grub.cfg",
 		    "\(set_str)",
 		    "\(men_str)",
 		    "EOF"
@@ -48,7 +48,7 @@ import "strings"
     commands: [...#GrubCommand]
 
     // Internal Fields
-    _toString: strings.Join( ["menuentry \(title)"] + [ for c in commands { c._toString }], "\n    ")
+    _toString: strings.Join( ["menuentry \(title) {"] + [ for c in commands { c._toString }] + ["}"], "\n    ")
 }
 
 #GrubCommand: {

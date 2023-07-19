@@ -31,7 +31,8 @@ COPY ./cue /cue
 RUN mkdir /whaleboot && \
     ( cd /cue && cue export test.cue  /cue/whaleboot-manifest.yaml -e script --out text ) \
     > /whaleboot/script.sh && \
-    chmod +x /whaleboot/script.sh
+    chmod +x /whaleboot/script.sh && \
+    cat /whaleboot/script.sh
 
 COPY ./initfile.sh /initfile.sh
 COPY ./features.d /tmp/features.d

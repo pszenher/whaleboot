@@ -59,7 +59,7 @@ package whaleboot
     }
 
     let target = "/dev/disk/by-partlabel/\(partlabel)"
-    let full_mountpoint = "/whaleboot/chroot\(mountpoint)"
+    let full_mountpoint = "\(chroot_mountpoint)\(mountpoint)"
     let mountpoint_priority = len(mountpoint) / 4096.0 // assuming 4096-byte max path length
     _tasks: [
 	{

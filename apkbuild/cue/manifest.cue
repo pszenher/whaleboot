@@ -3,6 +3,8 @@ package whaleboot
 import "list"
 import "strings"
 
+chroot_mountpoint: "/whaleboot/chroot"
+
 #HasTasks: self={
     _tasks: [...#BuildTask]
 
@@ -125,14 +127,14 @@ import "strings"
     mountpoint: #UnixPath
     exclude: *[] | [...#UnixPath]
 
-    let full_mountpoint = "/whaleboot/chroot"
+    // let full_mountpoint = "/whaleboot/chroot"
     _tasks: [{
 	id: "docker_export_\(label)"
 	priority: 50
 	content: strings.Join(
 	    // FIXME: pipe_progress redirection file should be
 	    // standardized (or reroute stdout another way... subshell?)
-	    [ "cat /docker-rootfs.tar | pipe_progress 2>> /tmp/ttyS1_no_newline | tar x -C \(full_mountpoint) -f -" ]  +
+	    [ "cat /docker-rootfs.tar | pipe_progress 2>> /tmp/ttyS1_no_newline | tar x -C \(chroot_mountpoint) -f -" ]  +
 		[ for e in exclude { "--exclude=\(e)" } ],
 	    " ")
     }]
@@ -172,7 +174,7 @@ import "strings"
 	}
 	redirections: [{
 	    operator: ">"
-	    filepath: path
+	    filepath: chroot_mountpoint + path
 	}]
 	content: raw_string | list_string
     }

@@ -39,7 +39,7 @@ disk:
       type: "fat"
       fat_size: 32
       label: "EFI"
-      mountpoint: "/boot/efi"
+      mountpoint: "/boot/whaleboot"
     - partlabel: "rootfs"
       type: "ext4"
       label: "whaleboot-root"
@@ -69,10 +69,10 @@ bootloader:
                 - "--no-floppy"
                 - "--set=root"
                 - "--label whaleboot-root"
-            - name: "kernel"
+            - name: "linux"
               args:
                 - "/boot/vmlinuz"
-                - "rw console=tty0 console=ttyS0,115200"
+                - "rw console=tty0 console=ttyS0,115200 root=LABEL=whaleboot-root"
             - name: "initrd"
               args:
                 - "/boot/initrd.img"
@@ -88,7 +88,6 @@ files:
         - "proc"
         - "tmp"
         - "sys"
-        
   keep:
     manifest:  True
     dockerenv: True
