@@ -15,7 +15,7 @@ su_do=""
 # rootfs_tarfile="alpine-minirootfs-3.18.2-x86_64.tar"
 image_name="pszenher/jackal-whaleboot:noetic"
 rootfs_tarfile="docker exported image"
-host_disk_path="/dev/shm/test.img"
+host_disk_path="/dev/sda"
 docker_disk_path="/bindmount.img"
 docker_container_name="whaleboot_builder"
 
@@ -27,8 +27,8 @@ if [[ "${effective_uid}" != 0 ]]; then
 fi
 
 if [[ -b "${host_disk_path}" ]] ; then
-    echo "Block device targetted, we're not ready for that yet..." >&2
-    exit 1
+    echo "Block device '${host_disk_path}' targetted, hope we're ready for that... (you've got 3 seconds)" >&2
+    sleep 3
 fi
 
 echo "Building wbbuilder..."
@@ -44,6 +44,7 @@ ${su_do} docker create --name="${temp_docker_container}" "${image_name}"
 ${su_do} docker run --rm -i \
 	 --mount="type=bind,source=${host_disk_path},target=${docker_disk_path}" \
 	 --device="/dev/kvm" \
+         --device="${host_disk_path}" \
          --name "${docker_container_name}" \
 	 --cap-drop=all \
 	 --cap-add="DAC_OVERRIDE" \
